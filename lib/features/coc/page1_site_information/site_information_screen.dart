@@ -13,8 +13,13 @@ import '../page2_sampling_details/sampling_details_screen.dart';
 
 class SiteInformationScreen extends StatefulWidget {
   final Map<String, dynamic>? existingRecord;
+  final bool readOnly;
 
-  const SiteInformationScreen({super.key, this.existingRecord});
+  const SiteInformationScreen({
+    super.key,
+    this.existingRecord,
+    this.readOnly = false,
+  });
 
   @override
   State<SiteInformationScreen> createState() => _SiteInformationScreenState();
@@ -292,6 +297,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
+        enabled: !widget.readOnly,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: AppTheme.primary),
@@ -440,7 +446,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
                 ),
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: pickDate,
+                  onTap: widget.readOnly ? null : pickDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       hintText: 'Monitoring Date',
@@ -505,7 +511,9 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(14),
-                          onTap: gettingGps ? null : getGpsLocation,
+                          onTap: widget.readOnly || gettingGps
+                              ? null
+                              : getGpsLocation,
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -527,13 +535,14 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: loading ? null : nextPage,
-              child: Text(loading ? 'Saving...' : 'Next'),
+          if (!widget.readOnly)
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: loading ? null : nextPage,
+                child: Text(loading ? 'Saving...' : 'Next'),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
         ],
       ),
