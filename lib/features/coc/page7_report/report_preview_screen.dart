@@ -49,6 +49,34 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     loadReport();
   }
 
+  // Helper to get all unique result labels
+  List<String> getAllResultLabels() {
+    final labels = labResultValues
+        .map((e) => e['result_label']?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    labels.sort();
+
+    return labels;
+  }
+
+  // Helper to get value by label for a specific analysis
+  String getResultValue(
+    dynamic analysisId,
+    String label,
+  ) {
+    final row = labResultValues.firstWhere(
+      (e) =>
+          e['analysis_result_id'] == analysisId &&
+          e['result_label'] == label,
+      orElse: () => {},
+    );
+
+    return row['result_value']?.toString() ?? '-';
+  }
+
   Future<Uint8List?> downloadStorageImageBytes(
     String path,
     String bucket,
@@ -301,6 +329,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       fontSize: 7.5,
       color: PdfColors.grey700,
     );
+
+    // Get all result labels for dynamic columns
+    final resultLabels = getAllResultLabels();
 
     pw.Widget sectionHeader(String title) {
       return pw.Container(
@@ -602,7 +633,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               headers: [
                 'Sampling Type',
                 'Parameter',
-                'Result',
+                ...resultLabels,
                 'Unit',
                 'Status',
                 'Analyst',
@@ -616,32 +647,31 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               columnWidths: {
                 0: const pw.FlexColumnWidth(1.6),
                 1: const pw.FlexColumnWidth(1.8),
-                2: const pw.FlexColumnWidth(1),
-                3: const pw.FlexColumnWidth(0.8),
-                4: const pw.FlexColumnWidth(1.4),
-                5: const pw.FlexColumnWidth(1.2),
-                6: const pw.FlexColumnWidth(1.3),
-                7: const pw.FlexColumnWidth(1.4),
-                8: const pw.FlexColumnWidth(0.9),
-                9: const pw.FlexColumnWidth(0.9),
-                10: const pw.FlexColumnWidth(0.9),
+                // Dynamic column widths for result labels
+                ...Map.fromIterable(
+                  resultLabels,
+                  key: (e) => resultLabels.indexOf(e) + 2,
+                  value: (e) => const pw.FlexColumnWidth(1),
+                ),
+                2 + resultLabels.length: const pw.FlexColumnWidth(0.8),
+                3 + resultLabels.length: const pw.FlexColumnWidth(1.4),
+                4 + resultLabels.length: const pw.FlexColumnWidth(1.2),
+                5 + resultLabels.length: const pw.FlexColumnWidth(1.3),
+                6 + resultLabels.length: const pw.FlexColumnWidth(1.4),
+                7 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                8 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                9 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                10 + resultLabels.length: const pw.FlexColumnWidth(0.9),
               },
               data: labResults.map((row) {
-                final values = resultValuesForAnalysis(row['id']);
-
-                final resultText = values.isEmpty
-                    ? '-'
-                    : values
-                          .map(
-                            (v) =>
-                                '${v['result_label']}: ${v['result_value']}',
-                          )
-                          .join('\n');
+                final dynamicValues = resultLabels.map(
+                  (label) => getResultValue(row['id'], label),
+                ).toList();
 
                 return [
                   row['sampling_type']?.toString() ?? '-',
                   row['parameter_name']?.toString() ?? '-',
-                  resultText,
+                  ...dynamicValues,
                   row['unit']?.toString() ?? '-',
                   row['status']?.toString() ?? '-',
                   row['analyst_name']?.toString() ?? '-',
@@ -806,6 +836,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final lab = record?['labs'];
     final labName = lab == null ? '-' : lab['lab_name']?.toString() ?? '-';
+    
+    // Get all result labels for dynamic columns in UI
+    final resultLabels = getAllResultLabels();
 
     return Scaffold(
       appBar: AppBar(
@@ -1139,7 +1172,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       headers: [
                         'Type',
                         'Parameter',
-                        'Result',
+                        ...resultLabels,
                         'Unit',
                         'Status',
                         'Analyst',
@@ -1147,21 +1180,14 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Remarks',
                       ],
                       rows: labResults.map((row) {
-                        final values = resultValuesForAnalysis(row['id']);
-
-                        final resultText = values.isEmpty
-                            ? '-'
-                            : values
-                                  .map(
-                                    (v) =>
-                                        '${v['result_label']}: ${v['result_value']}',
-                                  )
-                                  .join('\n');
+                        final resultColumns = resultLabels.map(
+                          (label) => getResultValue(row['id'], label),
+                        ).toList();
 
                         return [
                           row['sampling_type']?.toString() ?? '-',
                           row['parameter_name']?.toString() ?? '-',
-                          resultText,
+                          ...resultColumns,
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['analyst_name']?.toString() ?? '-',
