@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,12 +16,14 @@ class AttachmentTypeScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
   final String samplingType;
+  final bool readOnly;
 
   const AttachmentTypeScreen({
     super.key,
     required this.recordId,
     required this.batchNumber,
     required this.samplingType,
+    this.readOnly = false,
   });
 
   @override
@@ -121,6 +123,8 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
   }
 
   Future<void> chooseImageSource() async {
+    if (widget.readOnly) return;
+
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: AppTheme.background,
@@ -235,6 +239,8 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
     required String fileName,
     required String imageType,
   }) async {
+    if (widget.readOnly) return;
+    
     if (images.length >= 15) {
       AppSnackBar.warning(context, 'Maximum 15 images allowed');
       return;
@@ -320,6 +326,8 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
   }
 
   void scheduleNoteAutoSave(String imageId) {
+    if (widget.readOnly) return;
+    
     debounceTimers[imageId]?.cancel();
 
     debounceTimers[imageId] = Timer(
@@ -329,6 +337,8 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
   }
 
   Future<void> autoSaveNote(String imageId) async {
+    if (widget.readOnly) return;
+    
     final controller = noteControllers[imageId];
 
     if (controller == null) return;
@@ -356,6 +366,8 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
   }
 
   Future<void> deleteImage(Map<String, dynamic> image) async {
+    if (widget.readOnly) return;
+    
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -456,6 +468,32 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
       default:
         return Icons.image;
     }
+  }
+
+  Widget buildReadOnlyBanner() {
+    if (!widget.readOnly) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility, color: Colors.blue),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'This record has been submitted. Attachments can be viewed but not modified.',
+              style: TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget buildHeaderCard() {
@@ -569,7 +607,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
         ),
 
         // Retry button - shown when there's a failed upload
-        if (lastFailedFile != null)
+        if (!widget.readOnly && lastFailedFile != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: OutlinedButton.icon(
@@ -643,20 +681,24 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () => deleteImage(image),
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-              ),
+              if (!widget.readOnly)
+                IconButton(
+                  onPressed: () => deleteImage(image),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                ),
             ],
           ),
           const SizedBox(height: 12),
           TextField(
             controller: controller,
             maxLines: 2,
-            onChanged: (_) => scheduleNoteAutoSave(imageId),
+            readOnly: widget.readOnly,
+            onChanged: widget.readOnly
+                ? null
+                : (_) => scheduleNoteAutoSave(imageId),
             decoration: InputDecoration(
               hintText: 'Note for this image',
-              suffixIcon: isSaving
+              suffixIcon: isSaving && !widget.readOnly
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: SizedBox(
@@ -665,7 +707,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     )
-                  : const Icon(Icons.check_circle_outline, color: Colors.green),
+                  : null,
             ),
           ),
         ],
@@ -674,14 +716,16 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
   }
 
   Widget buildEmptyState() {
-    return const NeumoCard(
+    return NeumoCard(
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Text(
-            'No images attached yet.\nTap Add Attachment to begin.',
+            widget.readOnly
+                ? 'No images attached.'
+                : 'No images attached yet.\nTap Add Attachment to begin.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textSoft),
+            style: const TextStyle(color: AppTheme.textSoft),
           ),
         ),
       ),
@@ -744,6 +788,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  buildReadOnlyBanner(),
                   buildHeaderCard(),
                   LinearProgressIndicator(
                     value: images.length / 15,
@@ -753,7 +798,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   const SizedBox(height: 18),
-                  buildUploadButton(),
+                  if (!widget.readOnly) buildUploadButton(),
                   const SizedBox(height: 18),
                   if (images.isEmpty) buildEmptyState(),
                   ...images.map(buildImageCard),

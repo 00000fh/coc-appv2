@@ -388,26 +388,22 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
   Widget buildRecordCard(Map<String, dynamic> record) {
     final status = record['status']?.toString() ?? '-';
     final isDraft = status == 'draft';
+    final readOnly = !isDraft;
 
     return NeumoCard(
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: isDraft
-            ? () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        SiteInformationScreen(existingRecord: record),
-                  ),
-                ).then((_) => loadMyRecords());
-              }
-            : () {
-                AppSnackBar.warning(
-                  context,
-                  'Only draft records can be edited',
-                );
-              },
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SiteInformationScreen(
+                existingRecord: record,
+                readOnly: readOnly,
+              ),
+            ),
+          ).then((_) => loadMyRecords());
+        },
         child: Row(
           children: [
             Container(

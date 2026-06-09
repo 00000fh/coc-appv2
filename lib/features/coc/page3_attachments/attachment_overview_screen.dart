@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/supabase_config.dart';
 import '../../../core/theme/app_theme.dart';
@@ -14,11 +14,13 @@ import '../page4_insitu_result/insitu_result_screen.dart';
 class AttachmentOverviewScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
+  final bool readOnly;
 
   const AttachmentOverviewScreen({
     super.key,
     required this.recordId,
     required this.batchNumber,
+    this.readOnly = false,
   });
 
   @override
@@ -114,6 +116,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
           recordId: widget.recordId,
           batchNumber: widget.batchNumber,
           samplingType: type,
+          readOnly: widget.readOnly,
         ),
       ),
     );
@@ -128,6 +131,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
         builder: (_) => InsituResultScreen(
           recordId: widget.recordId,
           batchNumber: widget.batchNumber,
+          readOnly: widget.readOnly,
         ),
       ),
     );
@@ -337,13 +341,14 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
                   if (samplingTypes.isEmpty) buildEmptyState(),
                   ...samplingTypes.map(buildAttachmentCard),
                   const SizedBox(height: 14),
-                  SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: nextPage,
-                      child: const Text('Next'),
+                  if (!widget.readOnly)
+                    SizedBox(
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: nextPage,
+                        child: const Text('Next'),
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 24),
                 ],
               ),

@@ -13,11 +13,13 @@ import '../page5_lab_acknowledgement/lab_acknowledgement_screen.dart';
 class InsituResultScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
+  final bool readOnly;
 
   const InsituResultScreen({
     super.key,
     required this.recordId,
     required this.batchNumber,
+    this.readOnly = false,
   });
 
   @override
@@ -184,6 +186,8 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
   }
 
   Future<void> saveAndContinue() async {
+    if (widget.readOnly) return;
+    
     if (!hasWater) {
       // No water sampling, just navigate
       Navigator.push(
@@ -192,6 +196,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           builder: (_) => LabAcknowledgementScreen(
             recordId: widget.recordId,
             batchNumber: widget.batchNumber,
+            readOnly: widget.readOnly,
           ),
         ),
       );
@@ -226,6 +231,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           builder: (_) => LabAcknowledgementScreen(
             recordId: widget.recordId,
             batchNumber: widget.batchNumber,
+            readOnly: widget.readOnly,
           ),
         ),
       );
@@ -357,6 +363,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
+        readOnly: widget.readOnly,
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
@@ -398,11 +405,13 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
                   child: Text(status),
                 );
               }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  statusControllers[parameter]!.text = value ?? '';
-                });
-              },
+              onChanged: widget.readOnly
+                  ? null
+                  : (value) {
+                      setState(() {
+                        statusControllers[parameter]!.text = value ?? '';
+                      });
+                    },
             ),
           ),
           buildInputField(
@@ -553,13 +562,14 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           if (!hasWater) buildNoWaterCard(),
           if (hasWater) ...defaultParameters.map(buildResultCard),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: saving ? null : saveAndContinue,
-              child: Text(saving ? 'Saving...' : 'Next'),
+          if (!widget.readOnly)
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: saving ? null : saveAndContinue,
+                child: Text(saving ? 'Saving...' : 'Next'),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
         ],
       ),

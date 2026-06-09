@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
@@ -16,11 +16,13 @@ import '../../notifications/notification_service.dart';
 class LabAcknowledgementScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
+  final bool readOnly;
 
   const LabAcknowledgementScreen({
     super.key,
     required this.recordId,
     required this.batchNumber,
+    this.readOnly = false,
   });
 
   @override
@@ -72,6 +74,11 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           .select('id, lab_name, pic_name');
 
       labs = List<Map<String, dynamic>>.from(labResponse);
+
+      // If in read-only mode, load existing lab acknowledgement data
+      if (widget.readOnly) {
+        await loadExistingAcknowledgement();
+      }
     } catch (e) {
       if (!mounted) return;
 
@@ -97,6 +104,33 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
 
     if (mounted) {
       setState(() => loading = false);
+    }
+  }
+
+  Future<void> loadExistingAcknowledgement() async {
+    try {
+      final response = await supabase
+          .from('lab_acknowledgements')
+          .select()
+          .eq('coc_record_id', widget.recordId)
+          .maybeSingle();
+
+      if (response != null) {
+        selectedLabId = response['lab_id']?.toString();
+        labPicController.text = response['lab_pic']?.toString() ?? '';
+        typedNameController.text = response['typed_name']?.toString() ?? '';
+
+        // Load signature if exists (for display only in read-only mode)
+        final signaturePath = response['signature_path'];
+        if (signaturePath != null && signaturePath.isNotEmpty) {
+          // In read-only mode, we just show that a signature exists
+          // The actual signature display would require loading from storage
+          // For now, we'll just mark that signature exists
+        }
+      }
+    } catch (e) {
+      // Silent fail in read-only mode
+      debugPrint('Error loading existing acknowledgement: $e');
     }
   }
 
@@ -132,6 +166,8 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
   }
 
   Future<void> submitToLab() async {
+    if (widget.readOnly) return;
+
     if (selectedLabId == null ||
         labPicController.text.trim().isEmpty ||
         typedNameController.text.trim().isEmpty ||
@@ -271,7 +307,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
-        readOnly: readOnly,
+        readOnly: readOnly || widget.readOnly,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: AppTheme.primary),
@@ -295,17 +331,20 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             child: Text(lab['lab_name'].toString()),
           );
         }).toList(),
-        onChanged: (value) {
-          setState(() {
-            selectedLabId = value;
+        onChanged: widget.readOnly
+            ? null
+            : (value) {
+                setState(() {
+                  selectedLabId = value;
 
-            final selectedLab = labs.firstWhere(
-              (lab) => lab['id'].toString() == value,
-            );
+                  final selectedLab = labs.firstWhere(
+                    (lab) => lab['id'].toString() == value,
+                  );
 
-            labPicController.text = selectedLab['pic_name']?.toString() ?? '';
-          });
-        },
+                  labPicController.text =
+                      selectedLab['pic_name']?.toString() ?? '';
+                });
+              },
       ),
     );
   }
@@ -325,9 +364,11 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Draw signature inside the box below.',
-            style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
+          Text(
+            widget.readOnly
+                ? 'Signature has been captured.'
+                : 'Draw signature inside the box below.',
+            style: const TextStyle(color: AppTheme.textSoft, fontSize: 12),
           ),
           const SizedBox(height: 14),
           Container(
@@ -341,25 +382,30 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: Signature(
-                controller: signatureController,
-                backgroundColor: Colors.white,
+              child: IgnorePointer(
+                ignoring: widget.readOnly,
+                child: Signature(
+                  controller: signatureController,
+                  backgroundColor: Colors.white,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: submitting
-                  ? null
-                  : () {
-                      signatureController.clear();
-                    },
-              icon: const Icon(Icons.clear),
-              label: const Text('Clear Signature'),
+          if (!widget.readOnly) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: submitting
+                    ? null
+                    : () {
+                        signatureController.clear();
+                      },
+                icon: const Icon(Icons.clear),
+                label: const Text('Clear Signature'),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -432,9 +478,11 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Assign the selected record to a lab and confirm acknowledgement.',
-            style: TextStyle(color: AppTheme.textSoft),
+          Text(
+            widget.readOnly
+                ? 'View lab acknowledgement details.'
+                : 'Assign the selected record to a lab and confirm acknowledgement.',
+            style: const TextStyle(color: AppTheme.textSoft),
           ),
           const SizedBox(height: 16),
           NeumoCard(
@@ -462,13 +510,14 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           ),
           buildSignaturePad(),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: submitting ? null : submitToLab,
-              child: Text(submitting ? 'Submitting...' : 'Submit to Lab'),
+          if (!widget.readOnly)
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: submitting ? null : submitToLab,
+                child: Text(submitting ? 'Submitting...' : 'Submit to Lab'),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
         ],
       ),
