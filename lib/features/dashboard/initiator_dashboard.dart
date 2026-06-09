@@ -33,11 +33,17 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
   List<Map<String, dynamic>> get filteredRecords {
     if (searchQuery.trim().isEmpty) return records;
 
-    final query = searchQuery.trim();
+    final query = searchQuery.trim().toLowerCase();
 
     return records.where((record) {
-      final batchNumber = record['batch_number']?.toString() ?? '';
-      return batchNumber.endsWith(query) || batchNumber.contains(query);
+      final batchNumber =
+          record['batch_number']?.toString().toLowerCase() ?? '';
+
+      final projectName =
+          record['project_name']?.toString().toLowerCase() ?? '';
+
+      return batchNumber.contains(query) ||
+          projectName.contains(query);
     }).toList();
   }
 
@@ -372,12 +378,12 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
         ],
       ),
       child: TextField(
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.text,
         onChanged: (value) {
           setState(() => searchQuery = value);
         },
         decoration: const InputDecoration(
-          hintText: 'Search batch number',
+          hintText: 'Search by Batch Number or Project Name',
           prefixIcon: Icon(Icons.search),
           border: InputBorder.none,
         ),

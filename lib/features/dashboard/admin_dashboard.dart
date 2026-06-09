@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/supabase_config.dart';
@@ -34,15 +34,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<Map<String, dynamic>> get filteredRecords {
     if (searchQuery.trim().isEmpty) return records;
 
-    final query = searchQuery.trim();
+    final query = searchQuery.trim().toLowerCase();
 
     return records.where((record) {
-      final batchNumber = record['batch_number']?.toString() ?? '';
+      final batchNumber =
+          record['batch_number']?.toString().toLowerCase() ?? '';
+
       final projectName =
           record['project_name']?.toString().toLowerCase() ?? '';
+
       return batchNumber.contains(query) ||
-          batchNumber.endsWith(query) ||
-          projectName.contains(query.toLowerCase());
+          projectName.contains(query);
     }).toList();
   }
 
@@ -465,10 +467,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           setState(() => searchQuery = value);
         },
         decoration: const InputDecoration(
-          hintText: 'Search batch number or project',
-          prefixIcon: Icon(Icons.search),
-          border: InputBorder.none,
-        ),
+        hintText: 'Search by Batch Number or Project Name',
+        prefixIcon: Icon(Icons.search),
+        border: InputBorder.none,
+      ),
       ),
     );
   }

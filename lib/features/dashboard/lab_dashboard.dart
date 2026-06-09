@@ -38,11 +38,17 @@ class _LabDashboardState extends State<LabDashboard> {
       return records;
     }
 
-    final query = searchQuery.trim();
+    final query = searchQuery.trim().toLowerCase();
 
     return records.where((record) {
-      final batchNumber = record['batch_number']?.toString() ?? '';
-      return batchNumber.endsWith(query) || batchNumber.contains(query);
+      final batchNumber =
+          record['batch_number']?.toString().toLowerCase() ?? '';
+
+      final projectName =
+          record['project_name']?.toString().toLowerCase() ?? '';
+
+      return batchNumber.contains(query) ||
+          projectName.contains(query);
     }).toList();
   }
 
@@ -463,12 +469,11 @@ class _LabDashboardState extends State<LabDashboard> {
         ],
       ),
       child: TextField(
-        keyboardType: TextInputType.number,
         onChanged: (value) {
           setState(() => searchQuery = value);
         },
         decoration: const InputDecoration(
-          hintText: 'Search batch number',
+          hintText: 'Search batch number or project',
           prefixIcon: Icon(Icons.search),
           border: InputBorder.none,
         ),
