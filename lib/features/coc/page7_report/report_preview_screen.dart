@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:typed_data';
@@ -40,6 +40,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   List<Map<String, dynamic>> selectedParameters = [];
   List<Map<String, dynamic>> insituResults = [];
   List<Map<String, dynamic>> labResults = [];
+  List<Map<String, dynamic>> labResultValues = [];
   List<Map<String, dynamic>> attachments = [];
 
   @override
@@ -124,6 +125,12 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .order('sampling_type'),
       );
 
+      labResultValues = List<Map<String, dynamic>>.from(
+        await supabase
+            .from('lab_analysis_result_values')
+            .select(),
+      );
+
       attachments = List<Map<String, dynamic>>.from(
         await supabase
             .from('attachments')
@@ -180,6 +187,16 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   List<Map<String, dynamic>> attachmentsForType(String type) {
     return attachments
         .where((a) => a['sampling_type']?.toString() == type)
+        .toList();
+  }
+
+  List<Map<String, dynamic>> resultValuesForAnalysis(
+    dynamic analysisId,
+  ) {
+    return labResultValues
+        .where(
+          (r) => r['analysis_result_id'] == analysisId,
+        )
         .toList();
   }
 
@@ -610,10 +627,21 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 10: const pw.FlexColumnWidth(0.9),
               },
               data: labResults.map((row) {
+                final values = resultValuesForAnalysis(row['id']);
+
+                final resultText = values.isEmpty
+                    ? '-'
+                    : values
+                          .map(
+                            (v) =>
+                                '${v['result_label']}: ${v['result_value']}',
+                          )
+                          .join('\n');
+
                 return [
                   row['sampling_type']?.toString() ?? '-',
                   row['parameter_name']?.toString() ?? '-',
-                  row['result']?.toString() ?? '-',
+                  resultText,
                   row['unit']?.toString() ?? '-',
                   row['status']?.toString() ?? '-',
                   row['analyst_name']?.toString() ?? '-',
@@ -1119,10 +1147,21 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Remarks',
                       ],
                       rows: labResults.map((row) {
+                        final values = resultValuesForAnalysis(row['id']);
+
+                        final resultText = values.isEmpty
+                            ? '-'
+                            : values
+                                  .map(
+                                    (v) =>
+                                        '${v['result_label']}: ${v['result_value']}',
+                                  )
+                                  .join('\n');
+
                         return [
                           row['sampling_type']?.toString() ?? '-',
                           row['parameter_name']?.toString() ?? '-',
-                          row['result']?.toString() ?? '-',
+                          resultText,
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['analyst_name']?.toString() ?? '-',
