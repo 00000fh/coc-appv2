@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/neumo_card.dart';
@@ -44,7 +44,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     'pH': '-',
     'Turbidity': 'NTU',
     'E-Coli': 'CFU',
-    'Temperature': 'Â°C',
+    'Temperature': '°C',
   };
 
   final Map<String, bool> expandedSections = {};

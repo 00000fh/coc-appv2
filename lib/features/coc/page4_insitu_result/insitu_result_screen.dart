@@ -40,7 +40,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
 
   final Map<String, String> fixedUnits = {
     'pH': '-',
-    'Temperature': 'Â°C',
+    'Temperature': '°C',
     'TSS': 'mg/L',
     'DO': 'mg/L',
     'Turbidity': 'NTU',
