@@ -13,13 +13,8 @@ import '../page2_sampling_details/sampling_details_screen.dart';
 
 class SiteInformationScreen extends StatefulWidget {
   final Map<String, dynamic>? existingRecord;
-  final bool readOnly;
 
-  const SiteInformationScreen({
-    super.key,
-    this.existingRecord,
-    this.readOnly = false,
-  });
+  const SiteInformationScreen({super.key, this.existingRecord});
 
   @override
   State<SiteInformationScreen> createState() => _SiteInformationScreenState();
@@ -98,8 +93,6 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
   }
 
   Future<void> getGpsLocation() async {
-    if (widget.readOnly) return;
-    
     setState(() => gettingGps = true);
 
     try {
@@ -179,8 +172,6 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
   }
 
   Future<void> nextPage() async {
-    if (widget.readOnly) return;
-    
     if (projectNameController.text.trim().isEmpty ||
         clientNameController.text.trim().isEmpty ||
         locationController.text.trim().isEmpty) {
@@ -240,7 +231,15 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
 
       AppSnackBar.success(context, 'Site information saved successfully');
 
-      navigateToSamplingDetails();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SamplingDetailsScreen(
+            recordId: recordId!,
+            batchNumber: batchNumber!,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -269,49 +268,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
     }
   }
 
-  void navigateToSamplingDetails() {
-    if (recordId == null || batchNumber == null) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SamplingDetailsScreen(
-          recordId: recordId!,
-          batchNumber: batchNumber!,
-          readOnly: widget.readOnly,
-        ),
-      ),
-    );
-  }
-
-  Widget buildReadOnlyBanner() {
-    if (!widget.readOnly) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.visibility),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'View Only Mode - This record has already been submitted.',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> pickDate() async {
-    if (widget.readOnly) return;
-    
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: selectedDate,
@@ -335,7 +292,6 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
-        readOnly: widget.readOnly,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: AppTheme.primary),
@@ -419,7 +375,6 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          buildReadOnlyBanner(),
           NeumoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,7 +440,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
                 ),
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: widget.readOnly ? null : pickDate,
+                  onTap: pickDate,
                   child: InputDecorator(
                     decoration: InputDecoration(
                       hintText: 'Monitoring Date',
@@ -550,13 +505,11 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(14),
-                          onTap: (gettingGps || widget.readOnly) ? null : getGpsLocation,
+                          onTap: gettingGps ? null : getGpsLocation,
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: widget.readOnly 
-                                  ? Colors.grey 
-                                  : AppTheme.primary,
+                              color: AppTheme.primary,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
@@ -577,11 +530,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
           SizedBox(
             height: 56,
             child: ElevatedButton(
-              onPressed: loading
-                  ? null
-                  : widget.readOnly
-                      ? navigateToSamplingDetails
-                      : nextPage,
+              onPressed: loading ? null : nextPage,
               child: Text(loading ? 'Saving...' : 'Next'),
             ),
           ),

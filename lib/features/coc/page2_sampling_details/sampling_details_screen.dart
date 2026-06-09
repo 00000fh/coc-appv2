@@ -13,13 +13,11 @@ import '../page3_attachments/attachment_overview_screen.dart';
 class SamplingDetailsScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
-  final bool readOnly;
 
   const SamplingDetailsScreen({
     super.key,
     required this.recordId,
     required this.batchNumber,
-    this.readOnly = false,
   });
 
   @override
@@ -81,8 +79,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   }
 
   void toggleParameter(String type, String parameter, bool selected) {
-    if (widget.readOnly) return;
-    
     setState(() {
       selectedParameters[type] ??= {};
 
@@ -95,8 +91,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   }
 
   void addCustomParameter(String type, StateSetter bottomSheetSetState) {
-    if (widget.readOnly) return;
-    
     final controller = customParameterControllers[type];
 
     if (controller == null) return;
@@ -211,17 +205,15 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                                 child: Text(duration),
                               );
                             }).toList(),
-                            onChanged: widget.readOnly
-                                ? null
-                                : (value) {
-                                    setState(() {
-                                      selectedDurations[type] = value;
-                                    });
-                                    bottomSheetSetState(() {});
-                                  },
+                            onChanged: (value) {
+                              setState(() {
+                                selectedDurations[type] = value;
+                              });
+                              bottomSheetSetState(() {});
+                            },
                           ),
                         ),
-                      if ((type == 'Water' || type == 'Silt Trap') && !widget.readOnly)
+                      if (type == 'Water' || type == 'Silt Trap')
                         Row(
                           children: [
                             Expanded(
@@ -241,7 +233,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             ),
                           ],
                         ),
-                      if ((type == 'Water' || type == 'Silt Trap') && !widget.readOnly)
+                      if (type == 'Water' || type == 'Silt Trap')
                         const SizedBox(height: 16),
                       const Text(
                         'Parameters',
@@ -277,16 +269,14 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                                 value: selected,
                                 activeColor: getTypeColor(type),
                                 title: Text(parameter),
-                                onChanged: widget.readOnly
-                                    ? null
-                                    : (value) {
-                                        toggleParameter(
-                                          type,
-                                          parameter,
-                                          value ?? false,
-                                        );
-                                        bottomSheetSetState(() {});
-                                      },
+                                onChanged: (value) {
+                                  toggleParameter(
+                                    type,
+                                    parameter,
+                                    value ?? false,
+                                  );
+                                  bottomSheetSetState(() {});
+                                },
                               ),
                             );
                           },
@@ -314,8 +304,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   }
 
   Future<void> saveAndContinue() async {
-    if (widget.readOnly) return;
-    
     if (selectedTypes.isEmpty) {
       AppSnackBar.warning(context, 'Please select at least one sampling type');
       return;
@@ -381,7 +369,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           builder: (_) => AttachmentOverviewScreen(
             recordId: widget.recordId,
             batchNumber: widget.batchNumber,
-            readOnly: widget.readOnly,
           ),
         ),
       );
@@ -490,27 +477,25 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       padding: const EdgeInsets.all(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: widget.readOnly
-            ? null
-            : () async {
-                if (!isSelected) {
-                  setState(() {
-                    selectedTypes.add(type);
-                    selectedParameters[type] ??= {};
-                  });
-                }
+        onTap: () async {
+          if (!isSelected) {
+            setState(() {
+              selectedTypes.add(type);
+              selectedParameters[type] ??= {};
+            });
+          }
 
-                await openParameterSheet(type);
+          await openParameterSheet(type);
 
-                final updatedCount = selectedParameters[type]?.length ?? 0;
+          final updatedCount = selectedParameters[type]?.length ?? 0;
 
-                if (updatedCount == 0) {
-                  setState(() {
-                    selectedTypes.remove(type);
-                    selectedDurations.remove(type);
-                  });
-                }
-              },
+          if (updatedCount == 0) {
+            setState(() {
+              selectedTypes.remove(type);
+              selectedDurations.remove(type);
+            });
+          }
+        },
         child: Row(
           children: [
             Container(
@@ -538,7 +523,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                   Text(
                     isSelected
                         ? '$selectedCount parameter(s) selected'
-                              '${duration != null ? ' • $duration' : ''}'
+                              '${duration != null ? ' â€¢ $duration' : ''}'
                         : 'Tap to configure',
                     style: const TextStyle(
                       color: AppTheme.textSoft,
@@ -673,14 +658,13 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           const SizedBox(height: 16),
           ...types.map(buildSamplingTypeCard),
           const SizedBox(height: 14),
-          if (!widget.readOnly)
-            SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                onPressed: loading ? null : saveAndContinue,
-                child: Text(loading ? 'Saving...' : 'Next'),
-              ),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: loading ? null : saveAndContinue,
+              child: Text(loading ? 'Saving...' : 'Next'),
             ),
+          ),
           const SizedBox(height: 24),
         ],
       ),
