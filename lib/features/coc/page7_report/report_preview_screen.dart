@@ -49,32 +49,23 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     loadReport();
   }
 
-  // Helper to get all unique result labels
-  List<String> getAllResultLabels() {
-    final labels = labResultValues
-        .map((e) => e['result_label']?.toString() ?? '')
-        .where((e) => e.isNotEmpty)
-        .toSet()
+  // Helper to get result values for a specific analysis
+  List<Map<String, dynamic>> resultValuesForAnalysis(dynamic analysisId) {
+    return labResultValues
+        .where(
+          (r) => r['analysis_result_id'] == analysisId,
+        )
         .toList();
-
-    labels.sort();
-
-    return labels;
   }
 
-  // Helper to get value by label for a specific analysis
-  String getResultValue(
-    dynamic analysisId,
-    String label,
-  ) {
-    final row = labResultValues.firstWhere(
-      (e) =>
-          e['analysis_result_id'] == analysisId &&
-          e['result_label'] == label,
-      orElse: () => {},
-    );
-
-    return row['result_value']?.toString() ?? '-';
+  // Helper to format result text
+  String formatResultText(List<Map<String, dynamic>> values) {
+    if (values.isEmpty) return '-';
+    return values.map((v) {
+      final label = v['result_label']?.toString() ?? '';
+      final value = v['result_value']?.toString() ?? '';
+      return '$label: $value';
+    }).join('\n');
   }
 
   Future<Uint8List?> downloadStorageImageBytes(
@@ -153,7 +144,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .order('sampling_type'),
       );
 
-      // FIXED: Filter result values to only those belonging to this COC's analysis results
+      // Filter result values to only those belonging to this COC's analysis results
       final analysisIds = labResults.map((e) => e['id']).toList();
       
       if (analysisIds.isNotEmpty) {
@@ -226,16 +217,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         .toList();
   }
 
-  List<Map<String, dynamic>> resultValuesForAnalysis(
-    dynamic analysisId,
-  ) {
-    return labResultValues
-        .where(
-          (r) => r['analysis_result_id'] == analysisId,
-        )
-        .toList();
-  }
-
   Widget sectionCard({
     required String title,
     required IconData icon,
@@ -295,10 +276,23 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+        columnSpacing: 12,
+        columns: headers.map((h) => DataColumn(
+          label: Text(
+            h,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        )).toList(),
         rows: rows.map((row) {
           return DataRow(
-            cells: row.map((cell) => DataCell(Text(cell))).toList(),
+            cells: row.map((cell) {
+              return DataCell(
+                SizedBox(
+                  width: cell.contains('\n') ? 180 : null,
+                  child: Text(cell),
+                ),
+              );
+            }).toList(),
           );
         }).toList(),
       ),
@@ -337,9 +331,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       fontSize: 7.5,
       color: PdfColors.grey700,
     );
-
-    // Get all result labels for dynamic columns
-    final resultLabels = getAllResultLabels();
 
     pw.Widget sectionHeader(String title) {
       return pw.Container(
@@ -635,60 +626,54 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               }).toList(),
             ),
             pw.SizedBox(height: 14),
-            sectionHeader('4A. LAB ANALYSIS INFORMATION'),
+            sectionHeader('4. LAB ANALYSIS RESULT'),
             pw.SizedBox(height: 6),
             formalTable(
               headers: [
                 'Sampling Type',
                 'Parameter',
+                'Results',
                 'Unit',
                 'Status',
                 'Analyst',
                 'Date',
                 'Remarks',
+                'DOE',
+                'JKR',
+                'Internal',
+                'Baseline',
               ],
+              columnWidths: {
+                0: const pw.FlexColumnWidth(1.5),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(3),
+                3: const pw.FlexColumnWidth(1),
+                4: const pw.FlexColumnWidth(1.2),
+                5: const pw.FlexColumnWidth(1.2),
+                6: const pw.FlexColumnWidth(1.2),
+                7: const pw.FlexColumnWidth(2),
+                8: const pw.FlexColumnWidth(1),
+                9: const pw.FlexColumnWidth(1),
+                10: const pw.FlexColumnWidth(1),
+                11: const pw.FlexColumnWidth(1),
+              },
               data: labResults.map((row) {
+                final values = resultValuesForAnalysis(row['id']);
+                final resultText = formatResultText(values);
+
                 return [
                   row['sampling_type']?.toString() ?? '-',
                   row['parameter_name']?.toString() ?? '-',
+                  resultText,
                   row['unit']?.toString() ?? '-',
                   row['status']?.toString() ?? '-',
                   row['analyst_name']?.toString() ?? '-',
                   row['analysis_date']?.toString() ?? '-',
                   row['remarks']?.toString() ?? '-',
-                ];
-              }).toList(),
-            ),
-            // Check if we need to add a new page for result values
-            if (resultLabels.length > 8) pw.NewPage(),
-            pw.SizedBox(height: 12),
-            sectionHeader('4B. LAB RESULT VALUES'),
-            pw.SizedBox(height: 6),
-            formalTable(
-              headers: [
-                'Sampling Type',
-                'Parameter',
-                ...resultLabels,
-              ],
-              columnWidths: {
-                0: const pw.FlexColumnWidth(1.6),
-                1: const pw.FlexColumnWidth(1.8),
-                // Dynamic column widths for result labels
-                ...Map.fromIterable(
-                  resultLabels,
-                  key: (e) => resultLabels.indexOf(e) + 2,
-                  value: (e) => const pw.FlexColumnWidth(1),
-                ),
-              },
-              data: labResults.map((row) {
-                final dynamicValues = resultLabels.map(
-                  (label) => getResultValue(row['id'], label),
-                ).toList();
-
-                return [
-                  row['sampling_type']?.toString() ?? '-',
-                  row['parameter_name']?.toString() ?? '-',
-                  ...dynamicValues,
+                  row['doe_limit']?.toString() ?? '-',
+                  row['jkr_limit']?.toString() ?? '-',
+                  row['internal_limit']?.toString() ?? '-',
+                  row['baseline_limit']?.toString() ?? '-',
                 ];
               }).toList(),
             ),
@@ -844,9 +829,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final lab = record?['labs'];
     final labName = lab == null ? '-' : lab['lab_name']?.toString() ?? '-';
-    
-    // Get all result labels for dynamic columns in UI
-    final resultLabels = getAllResultLabels();
 
     return Scaffold(
       appBar: AppBar(
@@ -1180,7 +1162,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       headers: [
                         'Type',
                         'Parameter',
-                        ...resultLabels,
+                        'Results',
                         'Unit',
                         'Status',
                         'Analyst',
@@ -1188,14 +1170,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Remarks',
                       ],
                       rows: labResults.map((row) {
-                        final resultColumns = resultLabels.map(
-                          (label) => getResultValue(row['id'], label),
-                        ).toList();
+                        final values = resultValuesForAnalysis(row['id']);
+                        final resultText = formatResultText(values);
 
                         return [
                           row['sampling_type']?.toString() ?? '-',
                           row['parameter_name']?.toString() ?? '-',
-                          ...resultColumns,
+                          resultText,
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['analyst_name']?.toString() ?? '-',
