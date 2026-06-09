@@ -91,7 +91,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load notifications: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load notifications: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -119,6 +122,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           .eq('id', id);
 
       await loadNotifications();
+      if (!mounted) return;
       AppSnackBar.success(context, 'Notification marked as read');
     } catch (e) {
       if (!mounted) return;
@@ -137,7 +141,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to mark as read: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to mark as read: ${e.toString().split(':').first}',
+      );
     }
   }
 
@@ -159,6 +166,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           .inFilter('id', unreadIds);
 
       await loadNotifications();
+      if (!mounted) return;
       AppSnackBar.success(context, 'All notifications marked as read');
     } catch (e) {
       if (!mounted) return;
@@ -177,7 +185,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to mark all as read: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to mark all as read: ${e.toString().split(':').first}',
+      );
     }
   }
 
@@ -248,12 +259,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final color = getColor(type);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color),
       ),
@@ -276,13 +284,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.notifications,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.notifications, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -311,10 +316,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ),
           if (unreadCount > 0)
-            TextButton(
-              onPressed: markAllAsRead,
-              child: const Text('Read all'),
-            ),
+            TextButton(onPressed: markAllAsRead, child: const Text('Read all')),
         ],
       ),
     );
@@ -340,13 +342,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.14),
+                    color: color.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Icon(
-                    getIcon(type),
-                    color: color,
-                  ),
+                  child: Icon(getIcon(type), color: color),
                 ),
                 if (!isRead)
                   Positioned(
@@ -426,9 +425,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: Text(
             'No notifications yet.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.textSoft,
-            ),
+            style: TextStyle(color: AppTheme.textSoft),
           ),
         ),
       ),
@@ -446,8 +443,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount =
-        notifications.where((item) => item['is_read'] != true).length;
+    final unreadCount = notifications
+        .where((item) => item['is_read'] != true)
+        .length;
 
     // Show no internet state
     if (noInternet) {
@@ -458,15 +456,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           elevation: 0,
           title: const Text(
             'Notifications',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -479,10 +472,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           elevation: 0,
           title: const Text(
             'Notifications',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -496,10 +486,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         elevation: 0,
         title: const Text(
           'Notifications',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: RefreshIndicator(

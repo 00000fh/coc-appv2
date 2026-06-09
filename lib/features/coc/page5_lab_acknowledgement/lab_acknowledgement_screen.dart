@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
@@ -67,8 +67,9 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
 
       clientNameController.text = record['client_name']?.toString() ?? '';
 
-      final labResponse =
-          await supabase.from('labs').select('id, lab_name, pic_name');
+      final labResponse = await supabase
+          .from('labs')
+          .select('id, lab_name, pic_name');
 
       labs = List<Map<String, dynamic>>.from(labResponse);
     } catch (e) {
@@ -88,7 +89,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load page: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load page: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -120,10 +124,9 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
 
     await supabase.auth.refreshSession();
 
-    await supabase.storage.from('signatures').uploadBinary(
-          filePath,
-          signatureBytes,
-        );
+    await supabase.storage
+        .from('signatures')
+        .uploadBinary(filePath, signatureBytes);
 
     return filePath;
   }
@@ -133,7 +136,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         labPicController.text.trim().isEmpty ||
         typedNameController.text.trim().isEmpty ||
         signatureController.isEmpty) {
-      AppSnackBar.warning(context, 'Please complete all required fields including signature');
+      AppSnackBar.warning(
+        context,
+        'Please complete all required fields including signature',
+      );
       return;
     }
 
@@ -170,7 +176,8 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         labId: selectedLabId!,
         recordId: widget.recordId,
         title: 'New COC Assigned',
-        message: 'Batch ${widget.batchNumber} has been submitted for lab analysis.',
+        message:
+            'Batch ${widget.batchNumber} has been submitted for lab analysis.',
         type: 'new_assignment',
       );
 
@@ -204,7 +211,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Submit failed: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Submit failed: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -220,13 +230,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.verified_user,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.verified_user, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -235,10 +242,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
               children: [
                 const Text(
                   'Batch Number',
-                  style: TextStyle(
-                    color: AppTheme.textSoft,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -270,10 +274,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         readOnly: readOnly,
         decoration: InputDecoration(
           hintText: hint,
-          prefixIcon: Icon(
-            icon,
-            color: AppTheme.primary,
-          ),
+          prefixIcon: Icon(icon, color: AppTheme.primary),
         ),
       ),
     );
@@ -283,13 +284,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
-        value: selectedLabId,
+        initialValue: selectedLabId,
         decoration: const InputDecoration(
           hintText: 'Select Lab',
-          prefixIcon: Icon(
-            Icons.science,
-            color: AppTheme.primary,
-          ),
+          prefixIcon: Icon(Icons.science, color: AppTheme.primary),
         ),
         items: labs.map((lab) {
           return DropdownMenuItem<String>(
@@ -329,10 +327,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           const SizedBox(height: 6),
           const Text(
             'Draw signature inside the box below.',
-            style: TextStyle(
-              color: AppTheme.textSoft,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
           ),
           const SizedBox(height: 14),
           Container(
@@ -341,7 +336,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: AppTheme.primary.withOpacity(0.25),
+                color: AppTheme.primary.withValues(alpha: 0.25),
               ),
             ),
             child: ClipRRect(
@@ -390,15 +385,10 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           elevation: 0,
           title: const Text(
             'Lab Acknowledgement',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -411,10 +401,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           elevation: 0,
           title: const Text(
             'Lab Acknowledgement',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -428,10 +415,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
         elevation: 0,
         title: const Text(
           'Lab Acknowledgement',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
@@ -450,9 +434,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           const SizedBox(height: 6),
           const Text(
             'Assign the selected record to a lab and confirm acknowledgement.',
-            style: TextStyle(
-              color: AppTheme.textSoft,
-            ),
+            style: TextStyle(color: AppTheme.textSoft),
           ),
           const SizedBox(height: 16),
           NeumoCard(
@@ -484,9 +466,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             height: 56,
             child: ElevatedButton(
               onPressed: submitting ? null : submitToLab,
-              child: Text(
-                submitting ? 'Submitting...' : 'Submit to Lab',
-              ),
+              child: Text(submitting ? 'Submitting...' : 'Submit to Lab'),
             ),
           ),
           const SizedBox(height: 24),

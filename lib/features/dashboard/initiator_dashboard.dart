@@ -61,11 +61,9 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           table: 'coc_records',
           callback: (payload) {
             // Only refresh if the record belongs to this user
-            final newRecord =
-              payload.newRecord as Map<String, dynamic>?;
-            final oldRecord =
-              payload.oldRecord as Map<String, dynamic>?;
-            
+            final newRecord = payload.newRecord as Map<String, dynamic>?;
+            final oldRecord = payload.oldRecord as Map<String, dynamic>?;
+
             // Check if the affected record belongs to current user
             if (newRecord != null && newRecord['created_by'] == userId) {
               if (mounted) {
@@ -109,8 +107,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
 
       final response = await supabase
           .from('coc_records')
-          .select(
-            '''
+          .select('''
             id,
             batch_number,
             project_name,
@@ -121,8 +118,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
             monitoring_date,
             status,
             created_at
-            ''',
-          )
+            ''')
           .eq('created_by', user.id)
           .order('created_at', ascending: false);
 
@@ -144,7 +140,10 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load records: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load records: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -245,7 +244,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color),
       ),
@@ -268,8 +267,9 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
   }
 
   Widget buildOverviewCard() {
-    final draftCount =
-        records.where((r) => r['status']?.toString() == 'draft').length;
+    final draftCount = records
+        .where((r) => r['status']?.toString() == 'draft')
+        .length;
 
     final submittedCount = records
         .where((r) => r['status']?.toString() == 'submitted_to_lab')
@@ -295,13 +295,25 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           const SizedBox(height: 14),
           Row(
             children: [
-              buildOverviewItem('Total', records.length.toString(), AppTheme.primary),
+              buildOverviewItem(
+                'Total',
+                records.length.toString(),
+                AppTheme.primary,
+              ),
               buildDivider(),
               buildOverviewItem('Draft', draftCount.toString(), Colors.grey),
               buildDivider(),
-              buildOverviewItem('Submitted', submittedCount.toString(), Colors.orange),
+              buildOverviewItem(
+                'Submitted',
+                submittedCount.toString(),
+                Colors.orange,
+              ),
               buildDivider(),
-              buildOverviewItem('Done', completedCount.toString(), Colors.green),
+              buildOverviewItem(
+                'Done',
+                completedCount.toString(),
+                Colors.green,
+              ),
             ],
           ),
         ],
@@ -326,10 +338,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           Text(
             label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSoft,
-            ),
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSoft),
           ),
         ],
       ),
@@ -337,11 +346,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
   }
 
   Widget buildDivider() {
-    return Container(
-      height: 36,
-      width: 1,
-      color: const Color(0xFFD6DEE4),
-    );
+    return Container(height: 36, width: 1, color: const Color(0xFFD6DEE4));
   }
 
   Widget buildSearchBar() {
@@ -392,27 +397,26 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => SiteInformationScreen(
-                      existingRecord: record,
-                    ),
+                    builder: (_) =>
+                        SiteInformationScreen(existingRecord: record),
                   ),
                 ).then((_) => loadMyRecords());
               }
             : () {
-                AppSnackBar.warning(context, 'Only draft records can be edited');
+                AppSnackBar.warning(
+                  context,
+                  'Only draft records can be edited',
+                );
               },
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: getStatusColor(status).withOpacity(0.14),
+                color: getStatusColor(status).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                getStatusIcon(status),
-                color: getStatusColor(status),
-              ),
+              child: Icon(getStatusIcon(status), color: getStatusColor(status)),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -461,7 +465,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -474,15 +478,10 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -497,7 +496,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -510,10 +509,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
         body: const LoadingSkeleton(),
@@ -529,7 +525,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           preferredSize: const Size.fromHeight(1),
           child: Container(
             height: 1,
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         title: const Text(
@@ -542,10 +538,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
         ),
         actions: [
           const NotificationBell(),
-          IconButton(
-            onPressed: logout,
-            icon: const Icon(Icons.logout),
-          ),
+          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
         ],
       ),
       floatingActionButton: Material(
@@ -554,10 +547,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           borderRadius: BorderRadius.circular(28),
           onTap: openSiteInformation,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 14,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
               color: const Color(0xFF314A5A),
               borderRadius: BorderRadius.circular(28),
@@ -577,11 +567,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                Icon(Icons.add, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Text(
                   'New COC',

@@ -18,7 +18,6 @@ class NeumoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
       margin: margin,
 
@@ -27,22 +26,15 @@ class NeumoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFEAF1F5),
 
-        borderRadius:
-            BorderRadius.circular(
-          borderRadius,
-        ),
+        borderRadius: BorderRadius.circular(borderRadius),
 
         border: Border.all(
-          color:
-              Colors.white.withOpacity(
-            0.45,
-          ),
+          color: Colors.white.withValues(alpha: 0.45),
 
           width: 1,
         ),
 
         boxShadow: const [
-
           BoxShadow(
             color: Colors.white,
 

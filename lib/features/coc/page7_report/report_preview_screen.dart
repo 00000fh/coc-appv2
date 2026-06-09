@@ -61,18 +61,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     }
   }
 
-  Future<String?> getSignedImageUrl(
-    String path,
-    String bucket,
-  ) async {
+  Future<String?> getSignedImageUrl(String path, String bucket) async {
     try {
-      final signedUrl = await supabase
-          .storage
+      final signedUrl = await supabase.storage
           .from(bucket)
-          .createSignedUrl(
-            path,
-            60 * 60,
-          );
+          .createSignedUrl(path, 60 * 60);
       return signedUrl;
     } catch (e) {
       debugPrint('Failed to create signed URL: $e');
@@ -155,7 +148,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load report: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load report: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -194,9 +190,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   }) {
     return NeumoCard(
       child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-        ),
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: title == 'Site Information',
           tilePadding: EdgeInsets.zero,
@@ -204,14 +198,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              icon,
-              color: AppTheme.primary,
-              size: 20,
-            ),
+            child: Icon(icon, color: AppTheme.primary, size: 20),
           ),
           title: Text(
             title,
@@ -288,10 +278,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       color: PdfColors.white,
     );
 
-    final bodyStyle = const pw.TextStyle(
-      fontSize: 8.5,
-      color: PdfColors.black,
-    );
+    final bodyStyle = const pw.TextStyle(fontSize: 8.5, color: PdfColors.black);
 
     final smallStyle = const pw.TextStyle(
       fontSize: 7.5,
@@ -320,24 +307,14 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       return pw.TableHelper.fromTextArray(
         headers: headers,
         data: data.isEmpty ? [headers.map((_) => '-').toList()] : data,
-        border: pw.TableBorder.all(
-          color: PdfColors.grey500,
-          width: 0.35,
-        ),
-        headerDecoration: const pw.BoxDecoration(
-          color: PdfColors.blueGrey700,
-        ),
-        oddRowDecoration: const pw.BoxDecoration(
-          color: PdfColors.grey100,
-        ),
+        border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.35),
+        headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey700),
+        oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
         headerStyle: headerStyle,
         cellStyle: bodyStyle,
         cellAlignment: pw.Alignment.centerLeft,
         headerAlignment: pw.Alignment.centerLeft,
-        cellPadding: const pw.EdgeInsets.symmetric(
-          horizontal: 5,
-          vertical: 6,
-        ),
+        cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 6),
         columnWidths: columnWidths,
       );
     }
@@ -449,10 +426,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                           color: PdfColors.blueGrey900,
                         ),
                       ),
-                      pw.Text(
-                        'Chain of Custody Report',
-                        style: smallStyle,
-                      ),
+                      pw.Text('Chain of Custody Report', style: smallStyle),
                     ],
                   ),
                   pw.Column(
@@ -462,10 +436,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Document No.: ${widget.batchNumber}',
                         style: smallStyle,
                       ),
-                      pw.Text(
-                        'Generated: $generatedDate',
-                        style: smallStyle,
-                      ),
+                      pw.Text('Generated: $generatedDate', style: smallStyle),
                     ],
                   ),
                 ],
@@ -497,7 +468,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         },
         build: (context) {
           final lab = record?['labs'];
-          final labName = lab == null ? '-' : lab['lab_name']?.toString() ?? '-';
+          final labName = lab == null
+              ? '-'
+              : lab['lab_name']?.toString() ?? '-';
 
           return [
             pw.Center(
@@ -529,7 +502,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               data: [
                 ['Project Name', record?['project_name']?.toString() ?? '-'],
                 ['Client Name', record?['client_name']?.toString() ?? '-'],
-                ['Monitoring Date', record?['monitoring_date']?.toString() ?? '-'],
+                [
+                  'Monitoring Date',
+                  record?['monitoring_date']?.toString() ?? '-',
+                ],
                 ['Location', record?['location']?.toString() ?? '-'],
                 [
                   'Coordinate',
@@ -551,9 +527,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               },
               data: samplingTypes.map((row) {
                 final type = row['sampling_type'].toString();
-                final params = parametersForType(type)
-                    .map((p) => p['parameter_name'].toString())
-                    .join(', ');
+                final params = parametersForType(
+                  type,
+                ).map((p) => p['parameter_name'].toString()).join(', ');
 
                 return [
                   type,
@@ -664,10 +640,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   'Lab',
                   acknowledgement?['labs']?['lab_name']?.toString() ?? '-',
                 ],
-                [
-                  'Lab PIC',
-                  acknowledgement?['lab_pic']?.toString() ?? '-',
-                ],
+                ['Lab PIC', acknowledgement?['lab_pic']?.toString() ?? '-'],
                 [
                   'Typed Name',
                   acknowledgement?['typed_name']?.toString() ?? '-',
@@ -705,7 +678,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                 width: 0.4,
                               ),
                             ),
-                            child: pw.Text('No signature available', style: smallStyle),
+                            child: pw.Text(
+                              'No signature available',
+                              style: smallStyle,
+                            ),
                           ),
                     ],
                   ),
@@ -729,11 +705,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               pw.NewPage(),
               sectionHeader('6. ATTACHMENT EVIDENCE'),
               pw.SizedBox(height: 10),
-              pw.Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: attachmentWidgets,
-              ),
+              pw.Wrap(spacing: 10, runSpacing: 10, children: attachmentWidgets),
             ],
           ];
         },
@@ -755,16 +727,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     setState(() => generatingPdf = false);
 
-    AppSnackBar.success(
-      context,
-      'PDF generated successfully!',
-    );
+    AppSnackBar.success(context, 'PDF generated successfully!');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'PDF saved to:\n${file.path}',
-        ),
+        content: Text('PDF saved to:\n${file.path}'),
         action: SnackBarAction(
           label: 'OPEN',
           onPressed: () async {
@@ -786,15 +753,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           elevation: 0,
           title: const Text(
             'Report Preview',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -807,10 +769,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           elevation: 0,
           title: const Text(
             'Report Preview',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -827,10 +786,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         elevation: 0,
         title: const Text(
           'Report Preview',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: RefreshIndicator(
@@ -844,7 +800,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   Container(
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.12),
+                      color: AppTheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: const Icon(
@@ -868,9 +824,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         const SizedBox(height: 4),
                         Text(
                           record?['project_name']?.toString() ?? '-',
-                          style: const TextStyle(
-                            color: AppTheme.textSoft,
-                          ),
+                          style: const TextStyle(color: AppTheme.textSoft),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -913,9 +867,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   : Column(
                       children: samplingTypes.map((row) {
                         final type = row['sampling_type'].toString();
-                        final params = parametersForType(type)
-                            .map((p) => p['parameter_name'].toString())
-                            .join(', ');
+                        final params = parametersForType(
+                          type,
+                        ).map((p) => p['parameter_name'].toString()).join(', ');
 
                         return ListTile(
                           title: Text(type),
@@ -959,7 +913,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                 itemCount: typeAttachments.length,
                                 itemBuilder: (context, index) {
                                   final row = typeAttachments[index];
-                                  final imagePath = row['file_path']?.toString();
+                                  final imagePath = row['file_path']
+                                      ?.toString();
 
                                   return Container(
                                     width: 220,
@@ -968,13 +923,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                       child: Padding(
                                         padding: const EdgeInsets.all(10),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Expanded(
                                               child: imagePath == null
                                                   ? Container(
-                                                      alignment: Alignment.center,
-                                                      child: const Text('No image'),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: const Text(
+                                                        'No image',
+                                                      ),
                                                     )
                                                   : FutureBuilder<String?>(
                                                       future: getSignedImageUrl(
@@ -982,17 +941,26 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                                         'coc-attachments',
                                                       ),
                                                       builder: (context, snapshot) {
-                                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                                        if (snapshot
+                                                                .connectionState ==
+                                                            ConnectionState
+                                                                .waiting) {
                                                           return const Center(
-                                                            child: CircularProgressIndicator(),
+                                                            child:
+                                                                CircularProgressIndicator(),
                                                           );
                                                         }
-                                                        if (!snapshot.hasData || snapshot.data == null) {
+                                                        if (!snapshot.hasData ||
+                                                            snapshot.data ==
+                                                                null) {
                                                           return const Center(
-                                                            child: Text('Failed to load image'),
+                                                            child: Text(
+                                                              'Failed to load image',
+                                                            ),
                                                           );
                                                         }
-                                                        final signedUrl = snapshot.data!;
+                                                        final signedUrl =
+                                                            snapshot.data!;
                                                         return GestureDetector(
                                                           onTap: () {
                                                             showDialog(
@@ -1002,7 +970,8 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                                                   child: InteractiveViewer(
                                                                     child: Image.network(
                                                                       signedUrl,
-                                                                      fit: BoxFit.contain,
+                                                                      fit: BoxFit
+                                                                          .contain,
                                                                     ),
                                                                   ),
                                                                 );
@@ -1010,12 +979,18 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                                                             );
                                                           },
                                                           child: ClipRRect(
-                                                            borderRadius: BorderRadius.circular(12),
-                                                            child: Image.network(
-                                                              signedUrl,
-                                                              fit: BoxFit.cover,
-                                                              width: double.infinity,
-                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            child:
+                                                                Image.network(
+                                                                  signedUrl,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                  width: double
+                                                                      .infinity,
+                                                                ),
                                                           ),
                                                         );
                                                       },
@@ -1047,7 +1022,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               child: insituResults.isEmpty
                   ? const Text('No insitu result found.')
                   : simpleTable(
-                      headers: ['Parameter', 'Result', 'Unit', 'Status', 'Remarks'],
+                      headers: [
+                        'Parameter',
+                        'Result',
+                        'Unit',
+                        'Status',
+                        'Remarks',
+                      ],
                       rows: insituResults.map((row) {
                         return [
                           row['parameter_name']?.toString() ?? '-',
@@ -1069,7 +1050,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         infoRow('Lab', acknowledgement?['labs']?['lab_name']),
                         infoRow('Lab PIC', acknowledgement?['lab_pic']),
                         infoRow('Typed Name', acknowledgement?['typed_name']),
-                        infoRow('Acknowledged At', acknowledgement?['acknowledged_at']),
+                        infoRow(
+                          'Acknowledged At',
+                          acknowledgement?['acknowledged_at'],
+                        ),
                         const SizedBox(height: 12),
                         const Align(
                           alignment: Alignment.centerLeft,
@@ -1086,10 +1070,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                               'signatures',
                             ),
                             builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
                                 return const SizedBox(
                                   height: 120,
-                                  child: Center(child: CircularProgressIndicator()),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
                                 );
                               }
                               if (!snapshot.hasData || snapshot.data == null) {
@@ -1121,7 +1108,16 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               child: labResults.isEmpty
                   ? const Text('No lab analysis result found.')
                   : simpleTable(
-                      headers: ['Type', 'Parameter', 'Result', 'Unit', 'Status', 'Analyst', 'Date', 'Remarks'],
+                      headers: [
+                        'Type',
+                        'Parameter',
+                        'Result',
+                        'Unit',
+                        'Status',
+                        'Analyst',
+                        'Date',
+                        'Remarks',
+                      ],
                       rows: labResults.map((row) {
                         return [
                           row['sampling_type']?.toString() ?? '-',

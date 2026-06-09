@@ -4,10 +4,7 @@ import '../../core/theme/app_theme.dart';
 class LoadingSkeleton extends StatelessWidget {
   final int count;
 
-  const LoadingSkeleton({
-    super.key,
-    this.count = 5,
-  });
+  const LoadingSkeleton({super.key, this.count = 5});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +16,7 @@ class LoadingSkeleton extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 14),
           height: 92,
           decoration: BoxDecoration(
-            color: AppTheme.surface.withOpacity(0.75),
+            color: AppTheme.surface.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(22),
           ),
         );

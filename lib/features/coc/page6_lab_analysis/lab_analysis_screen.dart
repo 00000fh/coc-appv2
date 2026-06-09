@@ -44,12 +44,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     'pH': '-',
     'Turbidity': 'NTU',
     'E-Coli': 'CFU',
-    'Temperature': '°C',
+    'Temperature': 'Â°C',
   };
 
   final Map<String, bool> expandedSections = {};
 
-  final Map<String, TextEditingController> resultControllers = {};
+  final Map<String, List<Map<String, TextEditingController>>> resultRows = {};
   final Map<String, TextEditingController> remarksControllers = {};
   final Map<String, TextEditingController> doeLimitControllers = {};
   final Map<String, TextEditingController> jkrLimitControllers = {};
@@ -119,9 +119,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
       await supabase
           .from('coc_records')
-          .update({
-            'status': 'lab_in_progress',
-          })
+          .update({'status': 'lab_in_progress'})
           .eq('id', widget.recordId);
 
       if (initiatorId == null) {
@@ -140,6 +138,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -178,7 +177,9 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         final parameterName = row['parameter_name'].toString();
         final key = keyFor(samplingType, parameterName);
 
-        resultControllers[key] = TextEditingController();
+        resultRows[key] = [
+          {'label': TextEditingController(), 'value': TextEditingController()},
+        ];
         remarksControllers[key] = TextEditingController();
         doeLimitControllers[key] = TextEditingController();
         jkrLimitControllers[key] = TextEditingController();
@@ -195,6 +196,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -207,7 +209,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load parameters: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load parameters: ${e.toString().split(':').first}',
+      );
     }
   }
 
@@ -218,17 +223,42 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           .select()
           .eq('coc_record_id', widget.recordId);
 
+      final resultValues = await supabase
+          .from('lab_analysis_result_values')
+          .select();
+
       for (final row in response) {
         final samplingType = row['sampling_type'].toString();
         final parameterName = row['parameter_name'].toString();
         final key = keyFor(samplingType, parameterName);
+        final analysisId = row['id'];
 
-        resultControllers[key]?.text = row['result']?.toString() ?? '';
+        final valuesForThisParameter = resultValues
+            .where((valueRow) => valueRow['analysis_result_id'] == analysisId)
+            .toList();
+
+        if (valuesForThisParameter.isNotEmpty) {
+          resultRows[key] = [];
+
+          for (final valueRow in valuesForThisParameter) {
+            resultRows[key]!.add({
+              'label': TextEditingController(
+                text: valueRow['result_label']?.toString() ?? '',
+              ),
+              'value': TextEditingController(
+                text: valueRow['result_value']?.toString() ?? '',
+              ),
+            });
+          }
+        }
+
         remarksControllers[key]?.text = row['remarks']?.toString() ?? '';
         doeLimitControllers[key]?.text = row['doe_limit']?.toString() ?? '';
         jkrLimitControllers[key]?.text = row['jkr_limit']?.toString() ?? '';
-        internalLimitControllers[key]?.text = row['internal_limit']?.toString() ?? '';
-        baselineLimitControllers[key]?.text = row['baseline_limit']?.toString() ?? '';
+        internalLimitControllers[key]?.text =
+            row['internal_limit']?.toString() ?? '';
+        baselineLimitControllers[key]?.text =
+            row['baseline_limit']?.toString() ?? '';
         analystControllers[key]?.text = row['analyst_name']?.toString() ?? '';
 
         statusValues[key] = row['status']?.toString().isEmpty == true
@@ -243,6 +273,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -256,7 +287,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
       }
 
       if (mounted) {
-        AppSnackBar.error(context, 'Failed to load existing results: ${e.toString().split(':').first}');
+        AppSnackBar.error(
+          context,
+          'Failed to load existing results: ${e.toString().split(':').first}',
+        );
       }
     }
   }
@@ -267,15 +301,18 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
       final parameterName = row['parameter_name'].toString();
       final key = keyFor(samplingType, parameterName);
 
-      final result = resultControllers[key]?.text.trim() ?? '';
+      final rows = resultRows[key] ?? [];
+
+      final hasResult = rows.any(
+        (r) =>
+            r['label']!.text.trim().isNotEmpty &&
+            r['value']!.text.trim().isNotEmpty,
+      );
       final analyst = analystControllers[key]?.text.trim() ?? '';
       final status = statusValues[key];
       final remarks = remarksControllers[key]?.text.trim() ?? '';
 
-      if (result.isEmpty ||
-          analyst.isEmpty ||
-          status == null ||
-          remarks.isEmpty) {
+      if (!hasResult || analyst.isEmpty || status == null || remarks.isEmpty) {
         return false;
       }
     }
@@ -283,42 +320,68 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     return true;
   }
 
-  Future<void> saveAnalysis({
-    required bool complete,
-  }) async {
+  Future<void> saveAnalysis({required bool complete}) async {
     setState(() => saving = true);
 
     try {
       for (final row in selectedParameters) {
         final samplingType = row['sampling_type'].toString();
+
         final parameterName = row['parameter_name'].toString();
+
         final key = keyFor(samplingType, parameterName);
 
-        await supabase.from('lab_analysis_results').upsert({
-          'coc_record_id': widget.recordId,
-          'sampling_type': samplingType,
-          'parameter_name': parameterName,
-          'result': resultControllers[key]?.text.trim(),
-          'unit': getFixedUnit(parameterName),
-          'analyst_name': analystControllers[key]?.text.trim(),
-          'analysis_date': (analysisDates[key] ?? DateTime.now())
-              .toIso8601String()
-              .split('T')
-              .first,
-          'remarks': remarksControllers[key]?.text.trim(),
-          'doe_limit': doeLimitControllers[key]?.text.trim(),
-          'jkr_limit': jkrLimitControllers[key]?.text.trim(),
-          'internal_limit': internalLimitControllers[key]?.text.trim(),
-          'baseline_limit': baselineLimitControllers[key]?.text.trim(),
-          'status': statusValues[key],
-        }, onConflict: 'coc_record_id,sampling_type,parameter_name');
+        final analysisRow = await supabase
+            .from('lab_analysis_results')
+            .upsert({
+              'coc_record_id': widget.recordId,
+              'sampling_type': samplingType,
+              'parameter_name': parameterName,
+              'unit': getFixedUnit(parameterName),
+              'analyst_name': analystControllers[key]?.text.trim(),
+              'analysis_date': (analysisDates[key] ?? DateTime.now())
+                  .toIso8601String()
+                  .split('T')
+                  .first,
+              'remarks': remarksControllers[key]?.text.trim(),
+              'doe_limit': doeLimitControllers[key]?.text.trim(),
+              'jkr_limit': jkrLimitControllers[key]?.text.trim(),
+              'internal_limit': internalLimitControllers[key]?.text.trim(),
+              'baseline_limit': baselineLimitControllers[key]?.text.trim(),
+              'status': statusValues[key],
+            }, onConflict: 'coc_record_id,sampling_type,parameter_name')
+            .select()
+            .single();
+
+        final analysisId = analysisRow['id'];
+
+        await supabase
+            .from('lab_analysis_result_values')
+            .delete()
+            .eq('analysis_result_id', analysisId);
+
+        final results = resultRows[key] ?? [];
+
+        for (final result in results) {
+          final label = (result['label'] as TextEditingController).text.trim();
+
+          final value = (result['value'] as TextEditingController).text.trim();
+
+          if (label.isEmpty || value.isEmpty) {
+            continue;
+          }
+
+          await supabase.from('lab_analysis_result_values').insert({
+            'analysis_result_id': analysisId,
+            'result_label': label,
+            'result_value': value,
+          });
+        }
       }
 
       await supabase
           .from('coc_records')
-          .update({
-            'status': complete ? 'lab_completed' : 'lab_in_progress',
-          })
+          .update({'status': complete ? 'lab_completed' : 'lab_in_progress'})
           .eq('id', widget.recordId);
 
       if (complete) {
@@ -326,7 +389,8 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           role: 'admin',
           recordId: widget.recordId,
           title: 'Lab Analysis Completed',
-          message: 'Batch ${widget.batchNumber} lab analysis has been completed.',
+          message:
+              'Batch ${widget.batchNumber} lab analysis has been completed.',
           type: 'lab_completed',
         );
       }
@@ -344,13 +408,11 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -358,12 +420,75 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Save failed: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Save failed: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
       setState(() => saving = false);
     }
+  }
+
+  Widget buildResultsSection(String key) {
+    final rows = resultRows[key] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Results', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+
+        ...List.generate(rows.length, (index) {
+          final row = rows[index];
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: row['label'],
+                    decoration: const InputDecoration(hintText: 'Label'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: row['value'],
+                    decoration: const InputDecoration(hintText: 'Value'),
+                  ),
+                ),
+                IconButton(
+                  onPressed: rows.length == 1
+                      ? null
+                      : () {
+                          setState(() {
+                            rows.removeAt(index);
+                          });
+                        },
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+          );
+        }),
+
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              rows.add({
+                'label': TextEditingController(),
+                'value': TextEditingController(),
+              });
+            });
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Add Result'),
+        ),
+      ],
+    );
   }
 
   Widget buildParameterCard(Map<String, dynamic> row) {
@@ -382,13 +507,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
               Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.12),
+                  color: Colors.blue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
-                  Icons.science,
-                  color: Colors.blue,
-                ),
+                child: const Icon(Icons.science, color: Colors.blue),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -407,10 +529,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.10),
+                  color: AppTheme.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AppTheme.primary.withOpacity(0.35),
+                    color: AppTheme.primary.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Text(
@@ -425,25 +547,15 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: resultControllers[key],
-            decoration: const InputDecoration(
-              hintText: 'Result *',
-              prefixIcon: Icon(
-                Icons.edit_note,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
+
+          buildResultsSection(key),
+
           const SizedBox(height: 12),
           TextField(
             controller: analystControllers[key],
             decoration: const InputDecoration(
               hintText: 'Analyst Name *',
-              prefixIcon: Icon(
-                Icons.person,
-                color: AppTheme.primary,
-              ),
+              prefixIcon: Icon(Icons.person, color: AppTheme.primary),
             ),
           ),
           const SizedBox(height: 12),
@@ -465,10 +577,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
             child: InputDecorator(
               decoration: const InputDecoration(
                 hintText: 'Analysis Date',
-                prefixIcon: Icon(
-                  Icons.calendar_month,
-                  color: AppTheme.primary,
-                ),
+                prefixIcon: Icon(Icons.calendar_month, color: AppTheme.primary),
               ),
               child: Text(
                 '${(analysisDates[key] ?? DateTime.now()).day}/'
@@ -479,7 +588,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: statusValues[key],
+            initialValue: statusValues[key],
             decoration: const InputDecoration(
               hintText: 'Status *',
               prefixIcon: Icon(
@@ -505,17 +614,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
             maxLines: 2,
             decoration: const InputDecoration(
               hintText: 'Remarks *',
-              prefixIcon: Icon(
-                Icons.notes,
-                color: AppTheme.primary,
-              ),
+              prefixIcon: Icon(Icons.notes, color: AppTheme.primary),
             ),
           ),
           const SizedBox(height: 6),
           Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-            ),
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
@@ -528,20 +632,14 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
               ),
               subtitle: const Text(
                 'DOE, JKR, internal and baseline limits',
-                style: TextStyle(
-                  color: AppTheme.textSoft,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
               ),
               children: [
                 TextField(
                   controller: doeLimitControllers[key],
                   decoration: const InputDecoration(
                     hintText: 'DOE Limit',
-                    prefixIcon: Icon(
-                      Icons.balance,
-                      color: AppTheme.primary,
-                    ),
+                    prefixIcon: Icon(Icons.balance, color: AppTheme.primary),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -596,10 +694,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           ListTile(
             title: Text(
               samplingType,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             subtitle: Text('${rows.length} parameter(s)'),
             trailing: Icon(
@@ -613,13 +708,8 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           ),
           if (expanded)
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              child: Column(
-                children: rows.map(buildParameterCard).toList(),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(children: rows.map(buildParameterCard).toList()),
             ),
         ],
       ),
@@ -634,13 +724,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.science,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.science, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -649,10 +736,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
               children: [
                 const Text(
                   'Batch Number',
-                  style: TextStyle(
-                    color: AppTheme.textSoft,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -674,7 +758,6 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
   @override
   void dispose() {
     for (final controller in [
-      ...resultControllers.values,
       ...remarksControllers.values,
       ...doeLimitControllers.values,
       ...jkrLimitControllers.values,
@@ -683,6 +766,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
       ...analystControllers.values,
     ]) {
       controller.dispose();
+    }
+    for (final rows in resultRows.values) {
+      for (final row in rows) {
+        (row['label'] as TextEditingController).dispose();
+        (row['value'] as TextEditingController).dispose();
+      }
     }
     super.dispose();
   }
@@ -698,15 +787,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           elevation: 0,
           title: const Text(
             'Lab Analysis',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -719,10 +803,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           elevation: 0,
           title: const Text(
             'Lab Analysis',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -736,10 +817,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         elevation: 0,
         title: const Text(
           'Lab Analysis',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: Padding(
@@ -748,10 +826,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           children: [
             const Text(
               'Lab Analysis',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             buildBatchCard(),
@@ -770,13 +845,9 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
                           child: ElevatedButton.icon(
                             onPressed: saving
                                 ? null
-                                : () => saveAnalysis(
-                                      complete: false,
-                                    ),
+                                : () => saveAnalysis(complete: false),
                             icon: const Icon(Icons.save),
-                            label: Text(
-                              saving ? 'Saving...' : 'Save',
-                            ),
+                            label: Text(saving ? 'Saving...' : 'Save'),
                           ),
                         ),
                       ),
@@ -785,12 +856,9 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
                         child: SizedBox(
                           height: 52,
                           child: ElevatedButton.icon(
-                            onPressed:
-                                saving || !canCompleteAnalysis()
-                                    ? null
-                                    : () => saveAnalysis(
-                                          complete: true,
-                                        ),
+                            onPressed: saving || !canCompleteAnalysis()
+                                ? null
+                                : () => saveAnalysis(complete: true),
                             icon: const Icon(Icons.check_circle),
                             label: const Text('Complete'),
                           ),
@@ -803,10 +871,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
                     const Text(
                       'Complete all required fields to enable final submission.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.textSoft,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                     ),
                   ],
                 ],

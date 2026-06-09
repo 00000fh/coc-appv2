@@ -40,7 +40,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
 
   final Map<String, String> fixedUnits = {
     'pH': '-',
-    'Temperature': '°C',
+    'Temperature': 'Â°C',
     'TSS': 'mg/L',
     'DO': 'mg/L',
     'Turbidity': 'NTU',
@@ -98,6 +98,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -111,7 +112,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
       }
 
       if (mounted) {
-        AppSnackBar.error(context, 'Failed to check water sampling: ${e.toString().split(':').first}');
+        AppSnackBar.error(
+          context,
+          'Failed to check water sampling: ${e.toString().split(':').first}',
+        );
       }
     }
   }
@@ -145,14 +149,19 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         resultControllers[parameter]!.text = row['result']?.toString() ?? '';
         statusControllers[parameter]!.text = row['status']?.toString() ?? '';
         remarksControllers[parameter]!.text = row['remarks']?.toString() ?? '';
-        doeLimitControllers[parameter]!.text = row['doe_limit']?.toString() ?? '';
-        jkrLimitControllers[parameter]!.text = row['jkr_limit']?.toString() ?? '';
-        internalLimitControllers[parameter]!.text = row['internal_limit']?.toString() ?? '';
-        baselineLimitControllers[parameter]!.text = row['baseline_limit']?.toString() ?? '';
+        doeLimitControllers[parameter]!.text =
+            row['doe_limit']?.toString() ?? '';
+        jkrLimitControllers[parameter]!.text =
+            row['jkr_limit']?.toString() ?? '';
+        internalLimitControllers[parameter]!.text =
+            row['internal_limit']?.toString() ?? '';
+        baselineLimitControllers[parameter]!.text =
+            row['baseline_limit']?.toString() ?? '';
       }
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -166,7 +175,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
       }
 
       if (mounted) {
-        AppSnackBar.error(context, 'Failed to load existing results: ${e.toString().split(':').first}');
+        AppSnackBar.error(
+          context,
+          'Failed to load existing results: ${e.toString().split(':').first}',
+        );
       }
     }
   }
@@ -234,7 +246,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to save insitu result: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to save insitu result: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -250,13 +265,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.water_drop,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.water_drop, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -265,10 +277,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
               children: [
                 const Text(
                   'Batch Number',
-                  style: TextStyle(
-                    color: AppTheme.textSoft,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -295,13 +304,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         Container(
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.12),
+            color: Colors.blue.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(
-            Icons.science,
-            color: Colors.blue,
-          ),
+          child: const Icon(Icons.science, color: Colors.blue),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -315,16 +321,11 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.10),
+            color: AppTheme.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.primary.withOpacity(0.35),
-            ),
+            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
           ),
           child: Text(
             unit == '-' ? 'No unit' : unit,
@@ -359,10 +360,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
-          prefixIcon: Icon(
-            icon,
-            color: AppTheme.primary,
-          ),
+          prefixIcon: Icon(icon, color: AppTheme.primary),
         ),
       ),
     );
@@ -384,7 +382,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: DropdownButtonFormField<String>(
-              value: statusControllers[parameter]!.text.isEmpty
+              initialValue: statusControllers[parameter]!.text.isEmpty
                   ? null
                   : statusControllers[parameter]!.text,
               decoration: const InputDecoration(
@@ -415,9 +413,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           ),
           const SizedBox(height: 4),
           Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-            ),
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
@@ -430,10 +426,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
               ),
               subtitle: const Text(
                 'DOE, JKR, internal and baseline limits',
-                style: TextStyle(
-                  color: AppTheme.textSoft,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
               ),
               children: [
                 buildInputField(
@@ -470,9 +463,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         padding: EdgeInsets.all(20),
         child: Text(
           'Water sampling was not selected. Insitu result is usually required for Water only. You can proceed to the next page.',
-          style: TextStyle(
-            color: AppTheme.textSoft,
-          ),
+          style: TextStyle(color: AppTheme.textSoft),
           textAlign: TextAlign.center,
         ),
       ),
@@ -507,15 +498,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           elevation: 0,
           title: const Text(
             'Insitu Result',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -528,10 +514,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           elevation: 0,
           title: const Text(
             'Insitu Result',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -545,10 +528,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         elevation: 0,
         title: const Text(
           'Insitu Result',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
@@ -567,9 +547,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           const SizedBox(height: 6),
           const Text(
             'Fill in result, status and remarks. Units are fixed based on parameter.',
-            style: TextStyle(
-              color: AppTheme.textSoft,
-            ),
+            style: TextStyle(color: AppTheme.textSoft),
           ),
           const SizedBox(height: 16),
           if (!hasWater) buildNoWaterCard(),

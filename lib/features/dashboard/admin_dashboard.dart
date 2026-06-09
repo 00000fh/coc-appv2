@@ -38,7 +38,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     return records.where((record) {
       final batchNumber = record['batch_number']?.toString() ?? '';
-      final projectName = record['project_name']?.toString().toLowerCase() ?? '';
+      final projectName =
+          record['project_name']?.toString().toLowerCase() ?? '';
       return batchNumber.contains(query) ||
           batchNumber.endsWith(query) ||
           projectName.contains(query.toLowerCase());
@@ -161,7 +162,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load records: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load records: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -255,7 +259,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color),
       ),
@@ -307,12 +311,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isOverdue
-            ? Colors.red.withOpacity(0.12)
-            : Colors.orange.withOpacity(0.12),
+            ? Colors.red.withValues(alpha: 0.12)
+            : Colors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isOverdue ? Colors.red : Colors.orange,
-        ),
+        border: Border.all(color: isOverdue ? Colors.red : Colors.orange),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -382,11 +384,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 14),
           Row(
             children: [
-              buildOverviewItem('Total', records.length.toString(), AppTheme.primary),
+              buildOverviewItem(
+                'Total',
+                records.length.toString(),
+                AppTheme.primary,
+              ),
               buildDivider(),
-              buildOverviewItem('Submitted', submittedCount.toString(), Colors.orange),
+              buildOverviewItem(
+                'Submitted',
+                submittedCount.toString(),
+                Colors.orange,
+              ),
               buildDivider(),
-              buildOverviewItem('Progress', progressCount.toString(), Colors.blue),
+              buildOverviewItem(
+                'Progress',
+                progressCount.toString(),
+                Colors.blue,
+              ),
               buildDivider(),
               buildOverviewItem('Done', labDoneCount.toString(), Colors.green),
               buildDivider(),
@@ -414,10 +428,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Text(
             label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppTheme.textSoft,
-            ),
+            style: const TextStyle(fontSize: 10, color: AppTheme.textSoft),
           ),
         ],
       ),
@@ -425,11 +436,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget buildDivider() {
-    return Container(
-      height: 36,
-      width: 1,
-      color: const Color(0xFFD6DEE4),
-    );
+    return Container(height: 36, width: 1, color: const Color(0xFFD6DEE4));
   }
 
   Widget buildSearchBar() {
@@ -491,13 +498,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: getStatusColor(status).withOpacity(0.14),
+                color: getStatusColor(status).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                getStatusIcon(status),
-                color: getStatusColor(status),
-              ),
+              child: Icon(getStatusIcon(status), color: getStatusColor(status)),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -535,7 +539,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 8),
                   buildStatusChip(status),
-                  if (createdAt.isNotEmpty) buildDeadlineBadge(createdAt, status),
+                  if (createdAt.isNotEmpty)
+                    buildDeadlineBadge(createdAt, status),
                 ],
               ),
             ),
@@ -563,7 +568,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -576,15 +581,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -599,7 +599,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -612,10 +612,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
         body: const LoadingSkeleton(),
@@ -631,7 +628,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           preferredSize: const Size.fromHeight(1),
           child: Container(
             height: 1,
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         title: const Text(
@@ -644,10 +641,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         actions: [
           const NotificationBell(),
-          IconButton(
-            onPressed: logout,
-            icon: const Icon(Icons.logout),
-          ),
+          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
         ],
       ),
       body: RefreshIndicator(
@@ -663,10 +657,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 child: Center(
                   child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: Text(
-                      'No records yet.',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text('No records yet.', textAlign: TextAlign.center),
                   ),
                 ),
               ),

@@ -64,34 +64,32 @@ class _LabDashboardState extends State<LabDashboard> {
           callback: (payload) {
             if (mounted) {
               // Only refresh if the change affects records in lab statuses
-              final newRecord =
-                payload.newRecord as Map<String, dynamic>?;
-              final oldRecord =
-                payload.oldRecord as Map<String, dynamic>?;
-              
+              final newRecord = payload.newRecord as Map<String, dynamic>?;
+              final oldRecord = payload.oldRecord as Map<String, dynamic>?;
+
               // Check if the affected record has any lab-related status
               final List<String> labStatuses = [
                 'submitted_to_lab',
                 'lab_in_progress',
-                'lab_completed'
+                'lab_completed',
               ];
-              
+
               bool shouldRefresh = false;
-              
+
               if (newRecord != null) {
                 final status = newRecord['status']?.toString() ?? '';
                 if (labStatuses.contains(status)) {
                   shouldRefresh = true;
                 }
               }
-              
+
               if (oldRecord != null && !shouldRefresh) {
                 final status = oldRecord['status']?.toString() ?? '';
                 if (labStatuses.contains(status)) {
                   shouldRefresh = true;
                 }
               }
-              
+
               if (shouldRefresh) {
                 loadAssignedRecords();
               }
@@ -160,28 +158,20 @@ class _LabDashboardState extends State<LabDashboard> {
     try {
       final response = await supabase
           .from('coc_records')
-          .select(
-            '''
+          .select('''
             id,
             batch_number,
             project_name,
             client_name,
             status,
             created_at
-            ''',
-          )
-          .inFilter(
-            'status',
-            [
-              'submitted_to_lab',
-              'lab_in_progress',
-              'lab_completed',
-            ],
-          )
-          .order(
-            'created_at',
-            ascending: false,
-          );
+            ''')
+          .inFilter('status', [
+            'submitted_to_lab',
+            'lab_in_progress',
+            'lab_completed',
+          ])
+          .order('created_at', ascending: false);
 
       records = List<Map<String, dynamic>>.from(response);
 
@@ -203,7 +193,10 @@ class _LabDashboardState extends State<LabDashboard> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load assigned records: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load assigned records: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -230,9 +223,7 @@ class _LabDashboardState extends State<LabDashboard> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
@@ -288,23 +279,16 @@ class _LabDashboardState extends State<LabDashboard> {
     final color = getStatusColor(status);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            getStatusIcon(status),
-            size: 16,
-            color: color,
-          ),
+          Icon(getStatusIcon(status), size: 16, color: color),
           const SizedBox(width: 6),
           Text(
             getStatusLabel(status),
@@ -319,10 +303,7 @@ class _LabDashboardState extends State<LabDashboard> {
     );
   }
 
-  String getDeadlineStatus(
-    String createdAt,
-    String status,
-  ) {
+  String getDeadlineStatus(String createdAt, String status) {
     if (status == 'lab_completed') {
       return 'completed';
     }
@@ -342,10 +323,7 @@ class _LabDashboardState extends State<LabDashboard> {
     return 'normal';
   }
 
-  Widget buildDeadlineBadge(
-    String createdAt,
-    String status,
-  ) {
+  Widget buildDeadlineBadge(String createdAt, String status) {
     final deadlineStatus = getDeadlineStatus(createdAt, status);
 
     if (deadlineStatus == 'normal' || deadlineStatus == 'completed') {
@@ -356,18 +334,13 @@ class _LabDashboardState extends State<LabDashboard> {
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isOverdue
-            ? Colors.red.withOpacity(0.12)
-            : Colors.orange.withOpacity(0.12),
+            ? Colors.red.withValues(alpha: 0.12)
+            : Colors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isOverdue ? Colors.red : Colors.orange,
-        ),
+        border: Border.all(color: isOverdue ? Colors.red : Colors.orange),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -420,11 +393,7 @@ class _LabDashboardState extends State<LabDashboard> {
           const SizedBox(height: 14),
           Row(
             children: [
-              buildOverviewItem(
-                'New',
-                newCount.toString(),
-                Colors.orange,
-              ),
+              buildOverviewItem('New', newCount.toString(), Colors.orange),
               buildDivider(),
               buildOverviewItem(
                 'Progress',
@@ -444,11 +413,7 @@ class _LabDashboardState extends State<LabDashboard> {
     );
   }
 
-  Widget buildOverviewItem(
-    String label,
-    String value,
-    Color color,
-  ) {
+  Widget buildOverviewItem(String label, String value, Color color) {
     return Expanded(
       child: Column(
         children: [
@@ -464,10 +429,7 @@ class _LabDashboardState extends State<LabDashboard> {
           Text(
             label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSoft,
-            ),
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSoft),
           ),
         ],
       ),
@@ -475,11 +437,7 @@ class _LabDashboardState extends State<LabDashboard> {
   }
 
   Widget buildDivider() {
-    return Container(
-      height: 36,
-      width: 1,
-      color: const Color(0xFFD6DEE4),
-    );
+    return Container(height: 36, width: 1, color: const Color(0xFFD6DEE4));
   }
 
   Widget buildSearchBar() {
@@ -518,9 +476,7 @@ class _LabDashboardState extends State<LabDashboard> {
     );
   }
 
-  Widget buildRecordCard(
-    Map<String, dynamic> record,
-  ) {
+  Widget buildRecordCard(Map<String, dynamic> record) {
     final status = record['status']?.toString() ?? '-';
 
     final isCompleted = status == 'lab_completed';
@@ -537,22 +493,17 @@ class _LabDashboardState extends State<LabDashboard> {
                 batchNumber: record['batch_number'].toString(),
               ),
             ),
-          ).then(
-            (_) => loadAssignedRecords(),
-          );
+          ).then((_) => loadAssignedRecords());
         },
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: getStatusColor(status).withOpacity(0.14),
+                color: getStatusColor(status).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                getStatusIcon(status),
-                color: getStatusColor(status),
-              ),
+              child: Icon(getStatusIcon(status), color: getStatusColor(status)),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -570,9 +521,7 @@ class _LabDashboardState extends State<LabDashboard> {
                   const SizedBox(height: 4),
                   Text(
                     record['project_name']?.toString() ?? '-',
-                    style: const TextStyle(
-                      color: AppTheme.textSoft,
-                    ),
+                    style: const TextStyle(color: AppTheme.textSoft),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -584,10 +533,7 @@ class _LabDashboardState extends State<LabDashboard> {
                   ),
                   const SizedBox(height: 8),
                   buildStatusChip(status),
-                  buildDeadlineBadge(
-                    record['created_at'].toString(),
-                    status,
-                  ),
+                  buildDeadlineBadge(record['created_at'].toString(), status),
                 ],
               ),
             ),
@@ -615,7 +561,7 @@ class _LabDashboardState extends State<LabDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -628,15 +574,10 @@ class _LabDashboardState extends State<LabDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -651,7 +592,7 @@ class _LabDashboardState extends State<LabDashboard> {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           title: const Text(
@@ -664,10 +605,7 @@ class _LabDashboardState extends State<LabDashboard> {
           ),
           actions: [
             const NotificationBell(),
-            IconButton(
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
           ],
         ),
         body: const LoadingSkeleton(),
@@ -683,7 +621,7 @@ class _LabDashboardState extends State<LabDashboard> {
           preferredSize: const Size.fromHeight(1),
           child: Container(
             height: 1,
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         title: const Text(
@@ -696,10 +634,7 @@ class _LabDashboardState extends State<LabDashboard> {
         ),
         actions: [
           const NotificationBell(),
-          IconButton(
-            onPressed: logout,
-            icon: const Icon(Icons.logout),
-          ),
+          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
         ],
       ),
       body: RefreshIndicator(
@@ -734,9 +669,7 @@ class _LabDashboardState extends State<LabDashboard> {
                   ),
                 ),
               ),
-            ...filteredRecords.map(
-              buildRecordCard,
-            ),
+            ...filteredRecords.map(buildRecordCard),
           ],
         ),
       ),

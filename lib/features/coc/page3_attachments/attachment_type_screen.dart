@@ -97,7 +97,10 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load images: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load images: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -122,9 +125,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
       context: context,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return SafeArea(
@@ -138,7 +139,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                     height: 5,
                     margin: const EdgeInsets.only(bottom: 18),
                     decoration: BoxDecoration(
-                      color: AppTheme.textSoft.withOpacity(0.35),
+                      color: AppTheme.textSoft.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
@@ -201,20 +202,23 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
     final remainingSlots = 15 - images.length;
 
     if (remainingSlots <= 0) {
+      if (!mounted) return;
       AppSnackBar.warning(context, 'Maximum 15 images allowed');
       return;
     }
 
-    final pickedImages = await imagePicker.pickMultiImage(
-      imageQuality: 80,
-    );
+    final pickedImages = await imagePicker.pickMultiImage(imageQuality: 80);
 
     if (pickedImages.isEmpty) return;
 
     final limitedImages = pickedImages.take(remainingSlots).toList();
 
     if (pickedImages.length > remainingSlots) {
-      AppSnackBar.warning(context, 'Only $remainingSlots image(s) added because maximum is 15.');
+      if (!mounted) return;
+      AppSnackBar.warning(
+        context,
+        'Only $remainingSlots image(s) added because maximum is 15.',
+      );
     }
 
     for (final image in limitedImages) {
@@ -252,10 +256,9 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
 
       await supabase.auth.refreshSession();
 
-      await supabase.storage.from('coc-attachments').upload(
-            storagePath,
-            imageFile,
-          );
+      await supabase.storage
+          .from('coc-attachments')
+          .upload(storagePath, imageFile);
 
       final inserted = await supabase
           .from('attachments')
@@ -281,14 +284,14 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
       lastFailedFileName = null;
       lastFailedImageType = null;
 
+      if (!mounted) return;
       AppSnackBar.success(context, 'Image uploaded successfully');
 
-      if (mounted) {
-        setState(() {});
-      }
+      setState(() {});
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -339,9 +342,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
     try {
       await supabase
           .from('attachments')
-          .update({
-            'notes': controller.text.trim(),
-          })
+          .update({'notes': controller.text.trim()})
           .eq('id', imageId);
     } catch (e) {
       debugPrint('Auto save failed: $e');
@@ -370,10 +371,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -398,14 +396,14 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
       noteControllers[imageId]?.dispose();
       noteControllers.remove(imageId);
 
+      if (!mounted) return;
       AppSnackBar.success(context, 'Image deleted successfully');
 
-      if (mounted) {
-        setState(() {});
-      }
+      setState(() {});
     } catch (e) {
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
+        if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
@@ -418,7 +416,11 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Delete failed: ${e.toString().split(':').first}');
+      if (!mounted) return;
+      AppSnackBar.error(
+        context,
+        'Delete failed: ${e.toString().split(':').first}',
+      );
     }
   }
 
@@ -466,13 +468,10 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.14),
+              color: color.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(
-              getSamplingIcon(),
-              color: color,
-            ),
+            child: Icon(getSamplingIcon(), color: color),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -499,14 +498,11 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.10),
+              color: color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withOpacity(0.55)),
+              border: Border.all(color: color.withValues(alpha: 0.55)),
             ),
             child: Text(
               '${images.length}/15',
@@ -532,10 +528,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             onTap: uploading ? null : chooseImageSource,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 15,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               decoration: BoxDecoration(
                 color: const Color(0xFF314A5A),
                 borderRadius: BorderRadius.circular(28),
@@ -574,7 +567,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             ),
           ),
         ),
-        
+
         // Retry button - shown when there's a failed upload
         if (lastFailedFile != null)
           Padding(
@@ -615,7 +608,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
               Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: getSamplingColor().withOpacity(0.12),
+                  color: getSamplingColor().withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
@@ -652,10 +645,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
               ),
               IconButton(
                 onPressed: () => deleteImage(image),
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                ),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
               ),
             ],
           ),
@@ -675,10 +665,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     )
-                  : const Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.green,
-                    ),
+                  : const Icon(Icons.check_circle_outline, color: Colors.green),
             ),
           ),
         ],
@@ -694,9 +681,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
           child: Text(
             'No images attached yet.\nTap Add Attachment to begin.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.textSoft,
-            ),
+            style: TextStyle(color: AppTheme.textSoft),
           ),
         ),
       ),
@@ -735,9 +720,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
             ),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -765,7 +748,7 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
                   LinearProgressIndicator(
                     value: images.length / 15,
                     minHeight: 5,
-                    backgroundColor: color.withOpacity(0.12),
+                    backgroundColor: color.withValues(alpha: 0.12),
                     color: color,
                     borderRadius: BorderRadius.circular(20),
                   ),

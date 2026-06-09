@@ -83,7 +83,10 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
         return;
       }
 
-      AppSnackBar.error(context, 'Failed to load attachments: ${e.toString().split(':').first}');
+      AppSnackBar.error(
+        context,
+        'Failed to load attachments: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -172,13 +175,10 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.qr_code_2,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.qr_code_2, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -187,10 +187,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
               children: [
                 const Text(
                   'Batch Number',
-                  style: TextStyle(
-                    color: AppTheme.textSoft,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -223,13 +220,10 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.14),
+                color: color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                getTypeIcon(type),
-                color: color,
-              ),
+              child: Icon(getTypeIcon(type), color: color),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -256,7 +250,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
                   LinearProgressIndicator(
                     value: count / 15,
                     minHeight: 5,
-                    backgroundColor: color.withOpacity(0.12),
+                    backgroundColor: color.withValues(alpha: 0.12),
                     color: color,
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -300,15 +294,10 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
           elevation: 0,
           title: const Text(
             'Attachments',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -319,10 +308,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
         elevation: 0,
         title: const Text(
           'Attachments',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: RefreshIndicator(
@@ -345,9 +331,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     'Upload photos based on the selected sampling type.',
-                    style: TextStyle(
-                      color: AppTheme.textSoft,
-                    ),
+                    style: TextStyle(color: AppTheme.textSoft),
                   ),
                   const SizedBox(height: 16),
                   if (samplingTypes.isEmpty) buildEmptyState(),

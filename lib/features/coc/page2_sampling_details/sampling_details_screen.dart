@@ -52,30 +52,10 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       'Oil and Grease',
       '31 Parameter',
     ],
-    'Silt Trap': [
-      'Turbidity',
-      'Total Suspended Solids',
-    ],
-    'Ambient Air': [
-      'TSP',
-      'PM10',
-      'PM2.5',
-      'SOx',
-      'NOx',
-      'CO',
-      'O3',
-    ],
-    'Noise': [
-      'Leq',
-      'Lmax',
-      'Lmin',
-      'L10',
-      'L90',
-      'L50',
-    ],
-    'Vibration': [
-      'PPV (mm/s)',
-    ],
+    'Silt Trap': ['Turbidity', 'Total Suspended Solids'],
+    'Ambient Air': ['TSP', 'PM10', 'PM2.5', 'SOx', 'NOx', 'CO', 'O3'],
+    'Noise': ['Leq', 'Lmax', 'Lmin', 'L10', 'L90', 'L50'],
+    'Vibration': ['PPV (mm/s)'],
   };
 
   final Map<String, List<String>> durationsByType = {
@@ -145,9 +125,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       isScrollControlled: true,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return StatefulBuilder(
@@ -173,7 +151,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                           width: 44,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: AppTheme.textSoft.withOpacity(0.35),
+                            color: AppTheme.textSoft.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(20),
                           ),
                         ),
@@ -216,7 +194,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             ],
                           ),
                           child: DropdownButtonFormField<String>(
-                            value: selectedDurations[type],
+                            initialValue: selectedDurations[type],
                             decoration: const InputDecoration(
                               hintText: 'Select Duration',
                               border: InputBorder.none,
@@ -272,12 +250,12 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             final parameter = parameters[index];
                             final selected =
                                 selectedParameters[type]?.contains(parameter) ??
-                                    false;
+                                false;
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? getTypeColor(type).withOpacity(0.10)
+                                    ? getTypeColor(type).withValues(alpha: 0.10)
                                     : AppTheme.background,
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
@@ -396,13 +374,13 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      
+
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
-      
+
       // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
@@ -410,8 +388,11 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
         setState(() => noInternet = true);
         return;
       }
-      
-      AppSnackBar.error(context, 'Failed to save sampling details: ${e.toString().split(':').first}');
+
+      AppSnackBar.error(
+        context,
+        'Failed to save sampling details: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -424,10 +405,10 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       noInternet = false;
       isLoading = true;
     });
-    
+
     // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (mounted) {
       setState(() => isLoading = false);
     }
@@ -471,11 +452,9 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.primary.withOpacity(0.10),
+        color: AppTheme.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.primary.withOpacity(0.35),
-        ),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
       ),
       child: Text(
         text,
@@ -522,13 +501,10 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.14),
+                color: color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                getTypeIcon(type),
-                color: color,
-              ),
+              child: Icon(getTypeIcon(type), color: color),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -547,7 +523,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                   Text(
                     isSelected
                         ? '$selectedCount parameter(s) selected'
-                            '${duration != null ? ' • $duration' : ''}'
+                              '${duration != null ? ' â€¢ $duration' : ''}'
                         : 'Tap to configure',
                     style: const TextStyle(
                       color: AppTheme.textSoft,
@@ -576,13 +552,10 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.12),
+              color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
-              Icons.qr_code_2,
-              color: AppTheme.primary,
-            ),
+            child: const Icon(Icons.qr_code_2, color: AppTheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -591,10 +564,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
               children: [
                 const Text(
                   'Batch Number',
-                  style: TextStyle(
-                    color: AppTheme.textSoft,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -634,10 +604,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           elevation: 0,
           title: const Text(
             'Sampling Details',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -653,15 +620,10 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           elevation: 0,
           title: const Text(
             'Sampling Details',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -672,10 +634,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
         elevation: 0,
         title: const Text(
           'Sampling Details',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
@@ -694,9 +653,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           const SizedBox(height: 6),
           const Text(
             'Tap each sampling type to choose parameters and duration.',
-            style: TextStyle(
-              color: AppTheme.textSoft,
-            ),
+            style: TextStyle(color: AppTheme.textSoft),
           ),
           const SizedBox(height: 16),
           ...types.map(buildSamplingTypeCard),
@@ -705,9 +662,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
             height: 56,
             child: ElevatedButton(
               onPressed: loading ? null : saveAndContinue,
-              child: Text(
-                loading ? 'Saving...' : 'Next',
-              ),
+              child: Text(loading ? 'Saving...' : 'Next'),
             ),
           ),
           const SizedBox(height: 24),

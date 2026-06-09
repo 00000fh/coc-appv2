@@ -12,13 +12,10 @@ class RoleRedirectScreen extends StatefulWidget {
   const RoleRedirectScreen({super.key});
 
   @override
-  State<RoleRedirectScreen> createState() =>
-      _RoleRedirectScreenState();
+  State<RoleRedirectScreen> createState() => _RoleRedirectScreenState();
 }
 
-class _RoleRedirectScreenState
-    extends State<RoleRedirectScreen> {
-
+class _RoleRedirectScreenState extends State<RoleRedirectScreen> {
   @override
   void initState() {
     super.initState();
@@ -31,9 +28,7 @@ class _RoleRedirectScreenState
     if (user == null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
       return;
     }
@@ -51,48 +46,32 @@ class _RoleRedirectScreenState
     if (role == 'initiator') {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const InitiatorDashboard(),
-        ),
+        MaterialPageRoute(builder: (_) => const InitiatorDashboard()),
       );
-    }
-
-    else if (role == 'lab') {
+    } else if (role == 'lab') {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LabDashboard(),
-        ),
+        MaterialPageRoute(builder: (_) => const LabDashboard()),
       );
-    }
-
-    else if (role == 'admin') {
+    } else if (role == 'admin') {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const AdminDashboard(),
-        ),
+        MaterialPageRoute(builder: (_) => const AdminDashboard()),
       );
-    }
-
-    else {
+    } else {
       await supabase.auth.signOut();
 
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

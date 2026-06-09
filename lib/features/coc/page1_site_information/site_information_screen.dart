@@ -14,14 +14,10 @@ import '../page2_sampling_details/sampling_details_screen.dart';
 class SiteInformationScreen extends StatefulWidget {
   final Map<String, dynamic>? existingRecord;
 
-  const SiteInformationScreen({
-    super.key,
-    this.existingRecord,
-  });
+  const SiteInformationScreen({super.key, this.existingRecord});
 
   @override
-  State<SiteInformationScreen> createState() =>
-      _SiteInformationScreenState();
+  State<SiteInformationScreen> createState() => _SiteInformationScreenState();
 }
 
 class _SiteInformationScreenState extends State<SiteInformationScreen> {
@@ -47,7 +43,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
   void initState() {
     super.initState();
     generatePreviewBatchNumber();
-    
+
     // Simulate initial load or load existing record
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.existingRecord != null) {
@@ -79,8 +75,18 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
   void generatePreviewBatchNumber() {
     final now = DateTime.now();
     final monthNames = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     final month = monthNames[now.month - 1];
     previewBatchNumber = 'ELTS/MON/$month/XXXX';
@@ -106,24 +112,28 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
+
+      if (!mounted) return;
 
       setState(() {
         latitude = position.latitude;
         longitude = position.longitude;
       });
-      
+
       AppSnackBar.success(context, 'GPS coordinates captured successfully');
     } catch (e) {
       if (!mounted) return;
-      
+
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
-      
+
       // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
@@ -131,8 +141,11 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
         setState(() => noInternet = true);
         return;
       }
-      
-      AppSnackBar.error(context, 'GPS failed: ${e.toString().split(':').first}');
+
+      AppSnackBar.error(
+        context,
+        'GPS failed: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -145,14 +158,14 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       noInternet = false;
       isLoading = true;
     });
-    
+
     // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (widget.existingRecord != null) {
       loadExistingRecord();
     }
-    
+
     if (mounted) {
       setState(() => isLoading = false);
     }
@@ -182,7 +195,10 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
               'batch_number': newBatchNumber.toString(),
               'project_name': projectNameController.text.trim(),
               'client_name': clientNameController.text.trim(),
-              'monitoring_date': selectedDate.toIso8601String().split('T').first,
+              'monitoring_date': selectedDate
+                  .toIso8601String()
+                  .split('T')
+                  .first,
               'location': locationController.text.trim(),
               'latitude': latitude,
               'longitude': longitude,
@@ -195,18 +211,24 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
         recordId = inserted['id'].toString();
         batchNumber = inserted['batch_number'].toString();
       } else {
-        await supabase.from('coc_records').update({
-          'project_name': projectNameController.text.trim(),
-          'client_name': clientNameController.text.trim(),
-          'monitoring_date': selectedDate.toIso8601String().split('T').first,
-          'location': locationController.text.trim(),
-          'latitude': latitude,
-          'longitude': longitude,
-        }).eq('id', recordId!);
+        await supabase
+            .from('coc_records')
+            .update({
+              'project_name': projectNameController.text.trim(),
+              'client_name': clientNameController.text.trim(),
+              'monitoring_date': selectedDate
+                  .toIso8601String()
+                  .split('T')
+                  .first,
+              'location': locationController.text.trim(),
+              'latitude': latitude,
+              'longitude': longitude,
+            })
+            .eq('id', recordId!);
       }
 
       if (!mounted) return;
-      
+
       AppSnackBar.success(context, 'Site information saved successfully');
 
       Navigator.push(
@@ -220,13 +242,13 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      
+
       // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
-      
+
       // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
@@ -234,8 +256,11 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
         setState(() => noInternet = true);
         return;
       }
-      
-      AppSnackBar.error(context, 'Failed to continue: ${e.toString().split(':').first}');
+
+      AppSnackBar.error(
+        context,
+        'Failed to continue: ${e.toString().split(':').first}',
+      );
     }
 
     if (mounted) {
@@ -308,10 +333,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
           elevation: 0,
           title: const Text(
             'Site Information',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
         body: const LoadingSkeleton(),
@@ -327,15 +349,10 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
           elevation: 0,
           title: const Text(
             'Site Information',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        body: NoInternetState(
-          onRetry: retryAfterNoInternet,
-        ),
+        body: NoInternetState(onRetry: retryAfterNoInternet),
       );
     }
 
@@ -352,10 +369,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
         elevation: 0,
         title: const Text(
           'Site Information',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: ListView(
