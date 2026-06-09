@@ -186,14 +186,20 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
   }
 
   Future<void> saveAndContinue() async {
-    if (widget.readOnly) {
-      navigateToLabAcknowledgement();
-      return;
-    }
-
+    if (widget.readOnly) return;
+    
     if (!hasWater) {
       // No water sampling, just navigate
-      navigateToLabAcknowledgement();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LabAcknowledgementScreen(
+            recordId: widget.recordId,
+            batchNumber: widget.batchNumber,
+            readOnly: widget.readOnly,
+          ),
+        ),
+      );
       return;
     }
 
@@ -219,7 +225,16 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
 
       AppSnackBar.success(context, 'Insitu results saved successfully');
 
-      navigateToLabAcknowledgement();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LabAcknowledgementScreen(
+            recordId: widget.recordId,
+            batchNumber: widget.batchNumber,
+            readOnly: widget.readOnly,
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -246,44 +261,6 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     if (mounted) {
       setState(() => saving = false);
     }
-  }
-
-  void navigateToLabAcknowledgement() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LabAcknowledgementScreen(
-          recordId: widget.recordId,
-          batchNumber: widget.batchNumber,
-          readOnly: widget.readOnly,
-        ),
-      ),
-    );
-  }
-
-  Widget buildReadOnlyBanner() {
-    if (!widget.readOnly) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.visibility),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'View Only Mode - This record has already been submitted.',
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget buildBatchCard() {
@@ -566,7 +543,6 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          buildReadOnlyBanner(),
           buildBatchCard(),
           const SizedBox(height: 4),
           const Text(
@@ -586,13 +562,14 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           if (!hasWater) buildNoWaterCard(),
           if (hasWater) ...defaultParameters.map(buildResultCard),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: saving ? null : saveAndContinue,
-              child: Text(saving ? 'Saving...' : 'Next'),
+          if (!widget.readOnly)
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: saving ? null : saveAndContinue,
+                child: Text(saving ? 'Saving...' : 'Next'),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
         ],
       ),

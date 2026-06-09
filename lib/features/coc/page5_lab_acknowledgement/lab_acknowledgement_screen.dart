@@ -13,11 +13,6 @@ import '../../../shared/utils/session_handler.dart';
 
 import '../../notifications/notification_service.dart';
 
-// Helper function for edit permissions
-bool canEdit(String status) {
-  return status == 'draft';
-}
-
 class LabAcknowledgementScreen extends StatefulWidget {
   final String recordId;
   final String batchNumber;
@@ -39,7 +34,6 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
   bool loading = true;
   bool submitting = false;
   bool noInternet = false;
-  String recordStatus = '';
 
   final clientNameController = TextEditingController();
   final labPicController = TextEditingController();
@@ -53,37 +47,6 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
 
   List<Map<String, dynamic>> labs = [];
   String? selectedLabId;
-
-  // Helper method to check if screen should be read-only
-  bool get isReadOnly => widget.readOnly || !canEdit(recordStatus);
-
-  // Build read-only banner
-  Widget buildReadOnlyBanner() {
-    if (!isReadOnly) {
-      return const SizedBox();
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.visibility),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'View Only Mode - This record has already been submitted.',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -100,12 +63,11 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
     try {
       final record = await supabase
           .from('coc_records')
-          .select('client_name, status')
+          .select('client_name')
           .eq('id', widget.recordId)
           .single();
 
       clientNameController.text = record['client_name']?.toString() ?? '';
-      recordStatus = record['status']?.toString() ?? '';
 
       final labResponse = await supabase
           .from('labs')
@@ -114,7 +76,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
       labs = List<Map<String, dynamic>>.from(labResponse);
 
       // If in read-only mode, load existing lab acknowledgement data
-      if (isReadOnly) {
+      if (widget.readOnly) {
         await loadExistingAcknowledgement();
       }
     } catch (e) {
@@ -204,7 +166,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
   }
 
   Future<void> submitToLab() async {
-    if (isReadOnly) return;
+    if (widget.readOnly) return;
 
     if (selectedLabId == null ||
         labPicController.text.trim().isEmpty ||
@@ -345,7 +307,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
-        readOnly: readOnly || isReadOnly,
+        readOnly: readOnly || widget.readOnly,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: AppTheme.primary),
@@ -369,7 +331,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             child: Text(lab['lab_name'].toString()),
           );
         }).toList(),
-        onChanged: isReadOnly
+        onChanged: widget.readOnly
             ? null
             : (value) {
                 setState(() {
@@ -403,7 +365,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            isReadOnly
+            widget.readOnly
                 ? 'Signature has been captured.'
                 : 'Draw signature inside the box below.',
             style: const TextStyle(color: AppTheme.textSoft, fontSize: 12),
@@ -421,7 +383,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: IgnorePointer(
-                ignoring: isReadOnly,
+                ignoring: widget.readOnly,
                 child: Signature(
                   controller: signatureController,
                   backgroundColor: Colors.white,
@@ -429,7 +391,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
               ),
             ),
           ),
-          if (!isReadOnly) ...[
+          if (!widget.readOnly) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
@@ -505,7 +467,6 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          buildReadOnlyBanner(), // Added global banner
           buildBatchCard(),
           const SizedBox(height: 4),
           const Text(
@@ -518,7 +479,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            isReadOnly
+            widget.readOnly
                 ? 'View lab acknowledgement details.'
                 : 'Assign the selected record to a lab and confirm acknowledgement.',
             style: const TextStyle(color: AppTheme.textSoft),
@@ -549,7 +510,7 @@ class _LabAcknowledgementScreenState extends State<LabAcknowledgementScreen> {
           ),
           buildSignaturePad(),
           const SizedBox(height: 14),
-          if (!isReadOnly)
+          if (!widget.readOnly)
             SizedBox(
               height: 56,
               child: ElevatedButton(
