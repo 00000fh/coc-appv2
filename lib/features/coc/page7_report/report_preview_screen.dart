@@ -49,23 +49,32 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     loadReport();
   }
 
-  // Helper to get result values for a specific analysis
-  List<Map<String, dynamic>> resultValuesForAnalysis(dynamic analysisId) {
-    return labResultValues
-        .where(
-          (r) => r['analysis_result_id'] == analysisId,
-        )
+  // Helper to get all unique result labels
+  List<String> getAllResultLabels() {
+    final labels = labResultValues
+        .map((e) => e['result_label']?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet()
         .toList();
+
+    labels.sort();
+
+    return labels;
   }
 
-  // Helper to format result text
-  String formatResultText(List<Map<String, dynamic>> values) {
-    if (values.isEmpty) return '-';
-    return values.map((v) {
-      final label = v['result_label']?.toString() ?? '';
-      final value = v['result_value']?.toString() ?? '';
-      return '$label: $value';
-    }).join('\n');
+  // Helper to get value by label for a specific analysis
+  String getResultValue(
+    dynamic analysisId,
+    String label,
+  ) {
+    final row = labResultValues.firstWhere(
+      (e) =>
+          e['analysis_result_id'] == analysisId &&
+          e['result_label'] == label,
+      orElse: () => {},
+    );
+
+    return row['result_value']?.toString() ?? '-';
   }
 
   Future<Uint8List?> downloadStorageImageBytes(
@@ -144,19 +153,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .order('sampling_type'),
       );
 
-      // Filter result values to only those belonging to this COC's analysis results
-      final analysisIds = labResults.map((e) => e['id']).toList();
-      
-      if (analysisIds.isNotEmpty) {
-        labResultValues = List<Map<String, dynamic>>.from(
-          await supabase
-              .from('lab_analysis_result_values')
-              .select()
-              .inFilter('analysis_result_id', analysisIds),
-        );
-      } else {
-        labResultValues = [];
-      }
+      labResultValues = List<Map<String, dynamic>>.from(
+        await supabase
+            .from('lab_analysis_result_values')
+            .select(),
+      );
 
       attachments = List<Map<String, dynamic>>.from(
         await supabase
@@ -214,6 +215,16 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
   List<Map<String, dynamic>> attachmentsForType(String type) {
     return attachments
         .where((a) => a['sampling_type']?.toString() == type)
+        .toList();
+  }
+
+  List<Map<String, dynamic>> resultValuesForAnalysis(
+    dynamic analysisId,
+  ) {
+    return labResultValues
+        .where(
+          (r) => r['analysis_result_id'] == analysisId,
+        )
         .toList();
   }
 
@@ -276,23 +287,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columnSpacing: 12,
-        columns: headers.map((h) => DataColumn(
-          label: Text(
-            h,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        )).toList(),
+        columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
         rows: rows.map((row) {
           return DataRow(
-            cells: row.map((cell) {
-              return DataCell(
-                SizedBox(
-                  width: cell.contains('\n') ? 180 : null,
-                  child: Text(cell),
-                ),
-              );
-            }).toList(),
+            cells: row.map((cell) => DataCell(Text(cell))).toList(),
           );
         }).toList(),
       ),
@@ -331,6 +329,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       fontSize: 7.5,
       color: PdfColors.grey700,
     );
+
+    // Get all result labels for dynamic columns
+    final resultLabels = getAllResultLabels();
 
     pw.Widget sectionHeader(String title) {
       return pw.Container(
@@ -632,7 +633,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               headers: [
                 'Sampling Type',
                 'Parameter',
-                'Results',
+                ...resultLabels,
                 'Unit',
                 'Status',
                 'Analyst',
@@ -644,27 +645,33 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                 'Baseline',
               ],
               columnWidths: {
-                0: const pw.FlexColumnWidth(1.5),
-                1: const pw.FlexColumnWidth(2),
-                2: const pw.FlexColumnWidth(3),
-                3: const pw.FlexColumnWidth(1),
-                4: const pw.FlexColumnWidth(1.2),
-                5: const pw.FlexColumnWidth(1.2),
-                6: const pw.FlexColumnWidth(1.2),
-                7: const pw.FlexColumnWidth(2),
-                8: const pw.FlexColumnWidth(1),
-                9: const pw.FlexColumnWidth(1),
-                10: const pw.FlexColumnWidth(1),
-                11: const pw.FlexColumnWidth(1),
+                0: const pw.FlexColumnWidth(1.6),
+                1: const pw.FlexColumnWidth(1.8),
+                // Dynamic column widths for result labels
+                ...Map.fromIterable(
+                  resultLabels,
+                  key: (e) => resultLabels.indexOf(e) + 2,
+                  value: (e) => const pw.FlexColumnWidth(1),
+                ),
+                2 + resultLabels.length: const pw.FlexColumnWidth(0.8),
+                3 + resultLabels.length: const pw.FlexColumnWidth(1.4),
+                4 + resultLabels.length: const pw.FlexColumnWidth(1.2),
+                5 + resultLabels.length: const pw.FlexColumnWidth(1.3),
+                6 + resultLabels.length: const pw.FlexColumnWidth(1.4),
+                7 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                8 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                9 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                10 + resultLabels.length: const pw.FlexColumnWidth(0.9),
               },
               data: labResults.map((row) {
-                final values = resultValuesForAnalysis(row['id']);
-                final resultText = formatResultText(values);
+                final dynamicValues = resultLabels.map(
+                  (label) => getResultValue(row['id'], label),
+                ).toList();
 
                 return [
                   row['sampling_type']?.toString() ?? '-',
                   row['parameter_name']?.toString() ?? '-',
-                  resultText,
+                  ...dynamicValues,
                   row['unit']?.toString() ?? '-',
                   row['status']?.toString() ?? '-',
                   row['analyst_name']?.toString() ?? '-',
@@ -829,6 +836,9 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final lab = record?['labs'];
     final labName = lab == null ? '-' : lab['lab_name']?.toString() ?? '-';
+    
+    // Get all result labels for dynamic columns in UI
+    final resultLabels = getAllResultLabels();
 
     return Scaffold(
       appBar: AppBar(
@@ -1162,7 +1172,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       headers: [
                         'Type',
                         'Parameter',
-                        'Results',
+                        ...resultLabels,
                         'Unit',
                         'Status',
                         'Analyst',
@@ -1170,13 +1180,14 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Remarks',
                       ],
                       rows: labResults.map((row) {
-                        final values = resultValuesForAnalysis(row['id']);
-                        final resultText = formatResultText(values);
+                        final resultColumns = resultLabels.map(
+                          (label) => getResultValue(row['id'], label),
+                        ).toList();
 
                         return [
                           row['sampling_type']?.toString() ?? '-',
                           row['parameter_name']?.toString() ?? '-',
-                          resultText,
+                          ...resultColumns,
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['analyst_name']?.toString() ?? '-',
