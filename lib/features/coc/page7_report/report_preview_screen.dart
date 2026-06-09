@@ -153,11 +153,19 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .order('sampling_type'),
       );
 
-      labResultValues = List<Map<String, dynamic>>.from(
-        await supabase
-            .from('lab_analysis_result_values')
-            .select(),
-      );
+      // FIXED: Filter result values to only those belonging to this COC's analysis results
+      final analysisIds = labResults.map((e) => e['id']).toList();
+      
+      if (analysisIds.isNotEmpty) {
+        labResultValues = List<Map<String, dynamic>>.from(
+          await supabase
+              .from('lab_analysis_result_values')
+              .select()
+              .inFilter('analysis_result_id', analysisIds),
+        );
+      } else {
+        labResultValues = [];
+      }
 
       attachments = List<Map<String, dynamic>>.from(
         await supabase
@@ -627,22 +635,40 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               }).toList(),
             ),
             pw.SizedBox(height: 14),
-            sectionHeader('4. LAB ANALYSIS RESULT'),
+            sectionHeader('4A. LAB ANALYSIS INFORMATION'),
+            pw.SizedBox(height: 6),
+            formalTable(
+              headers: [
+                'Sampling Type',
+                'Parameter',
+                'Unit',
+                'Status',
+                'Analyst',
+                'Date',
+                'Remarks',
+              ],
+              data: labResults.map((row) {
+                return [
+                  row['sampling_type']?.toString() ?? '-',
+                  row['parameter_name']?.toString() ?? '-',
+                  row['unit']?.toString() ?? '-',
+                  row['status']?.toString() ?? '-',
+                  row['analyst_name']?.toString() ?? '-',
+                  row['analysis_date']?.toString() ?? '-',
+                  row['remarks']?.toString() ?? '-',
+                ];
+              }).toList(),
+            ),
+            // Check if we need to add a new page for result values
+            if (resultLabels.length > 8) pw.NewPage(),
+            pw.SizedBox(height: 12),
+            sectionHeader('4B. LAB RESULT VALUES'),
             pw.SizedBox(height: 6),
             formalTable(
               headers: [
                 'Sampling Type',
                 'Parameter',
                 ...resultLabels,
-                'Unit',
-                'Status',
-                'Analyst',
-                'Date',
-                'Remarks',
-                'DOE',
-                'JKR',
-                'Internal',
-                'Baseline',
               ],
               columnWidths: {
                 0: const pw.FlexColumnWidth(1.6),
@@ -653,15 +679,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   key: (e) => resultLabels.indexOf(e) + 2,
                   value: (e) => const pw.FlexColumnWidth(1),
                 ),
-                2 + resultLabels.length: const pw.FlexColumnWidth(0.8),
-                3 + resultLabels.length: const pw.FlexColumnWidth(1.4),
-                4 + resultLabels.length: const pw.FlexColumnWidth(1.2),
-                5 + resultLabels.length: const pw.FlexColumnWidth(1.3),
-                6 + resultLabels.length: const pw.FlexColumnWidth(1.4),
-                7 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                8 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                9 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                10 + resultLabels.length: const pw.FlexColumnWidth(0.9),
               },
               data: labResults.map((row) {
                 final dynamicValues = resultLabels.map(
@@ -672,15 +689,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   row['sampling_type']?.toString() ?? '-',
                   row['parameter_name']?.toString() ?? '-',
                   ...dynamicValues,
-                  row['unit']?.toString() ?? '-',
-                  row['status']?.toString() ?? '-',
-                  row['analyst_name']?.toString() ?? '-',
-                  row['analysis_date']?.toString() ?? '-',
-                  row['remarks']?.toString() ?? '-',
-                  row['doe_limit']?.toString() ?? '-',
-                  row['jkr_limit']?.toString() ?? '-',
-                  row['internal_limit']?.toString() ?? '-',
-                  row['baseline_limit']?.toString() ?? '-',
                 ];
               }).toList(),
             ),
