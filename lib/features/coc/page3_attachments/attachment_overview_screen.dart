@@ -137,6 +137,31 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
     );
   }
 
+  Widget buildReadOnlyBanner() {
+    if (!widget.readOnly) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'View Only Mode - This record has already been submitted.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color getTypeColor(String type) {
     switch (type) {
       case 'Water':
@@ -322,6 +347,7 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  buildReadOnlyBanner(),
                   buildBatchCard(),
                   const SizedBox(height: 4),
                   const Text(
@@ -341,14 +367,13 @@ class _AttachmentOverviewScreenState extends State<AttachmentOverviewScreen> {
                   if (samplingTypes.isEmpty) buildEmptyState(),
                   ...samplingTypes.map(buildAttachmentCard),
                   const SizedBox(height: 14),
-                  if (!widget.readOnly)
-                    SizedBox(
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: nextPage,
-                        child: const Text('Next'),
-                      ),
+                  SizedBox(
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: nextPage,
+                      child: const Text('Next'),
                     ),
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),

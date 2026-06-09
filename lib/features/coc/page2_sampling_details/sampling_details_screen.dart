@@ -314,8 +314,11 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   }
 
   Future<void> saveAndContinue() async {
-    if (widget.readOnly) return;
-    
+    if (widget.readOnly) {
+      navigateToAttachments();
+      return;
+    }
+
     if (selectedTypes.isEmpty) {
       AppSnackBar.warning(context, 'Please select at least one sampling type');
       return;
@@ -375,16 +378,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
 
       AppSnackBar.success(context, 'Sampling details saved successfully');
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AttachmentOverviewScreen(
-            recordId: widget.recordId,
-            batchNumber: widget.batchNumber,
-            readOnly: widget.readOnly,
-          ),
-        ),
-      );
+      navigateToAttachments();
     } catch (e) {
       if (!mounted) return;
 
@@ -411,6 +405,44 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
     if (mounted) {
       setState(() => loading = false);
     }
+  }
+
+  void navigateToAttachments() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AttachmentOverviewScreen(
+          recordId: widget.recordId,
+          batchNumber: widget.batchNumber,
+          readOnly: widget.readOnly,
+        ),
+      ),
+    );
+  }
+
+  Widget buildReadOnlyBanner() {
+    if (!widget.readOnly) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'View Only Mode - This record has already been submitted.',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> retryAfterNoInternet() async {
@@ -655,6 +687,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          buildReadOnlyBanner(),
           buildBatchCard(),
           const SizedBox(height: 4),
           const Text(
@@ -673,14 +706,13 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
           const SizedBox(height: 16),
           ...types.map(buildSamplingTypeCard),
           const SizedBox(height: 14),
-          if (!widget.readOnly)
-            SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                onPressed: loading ? null : saveAndContinue,
-                child: Text(loading ? 'Saving...' : 'Next'),
-              ),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: loading ? null : saveAndContinue,
+              child: Text(loading ? 'Saving...' : 'Next'),
             ),
+          ),
           const SizedBox(height: 24),
         ],
       ),

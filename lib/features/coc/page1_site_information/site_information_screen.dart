@@ -240,16 +240,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
 
       AppSnackBar.success(context, 'Site information saved successfully');
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SamplingDetailsScreen(
-            recordId: recordId!,
-            batchNumber: batchNumber!,
-            readOnly: widget.readOnly,
-          ),
-        ),
-      );
+      navigateToSamplingDetails();
     } catch (e) {
       if (!mounted) return;
 
@@ -276,6 +267,46 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
     if (mounted) {
       setState(() => loading = false);
     }
+  }
+
+  void navigateToSamplingDetails() {
+    if (recordId == null || batchNumber == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SamplingDetailsScreen(
+          recordId: recordId!,
+          batchNumber: batchNumber!,
+          readOnly: widget.readOnly,
+        ),
+      ),
+    );
+  }
+
+  Widget buildReadOnlyBanner() {
+    if (!widget.readOnly) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'View Only Mode - This record has already been submitted.',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> pickDate() async {
@@ -388,6 +419,7 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          buildReadOnlyBanner(),
           NeumoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,14 +574,17 @@ class _SiteInformationScreenState extends State<SiteInformationScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          if (!widget.readOnly)
-            SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                onPressed: loading ? null : nextPage,
-                child: Text(loading ? 'Saving...' : 'Next'),
-              ),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: loading
+                  ? null
+                  : widget.readOnly
+                      ? navigateToSamplingDetails
+                      : nextPage,
+              child: Text(loading ? 'Saving...' : 'Next'),
             ),
+          ),
           const SizedBox(height: 24),
         ],
       ),

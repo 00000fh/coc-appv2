@@ -16,6 +16,11 @@ import '../notifications/notification_bell.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// Helper function for edit permissions
+bool canEdit(String status) {
+  return status == 'draft';
+}
+
 class InitiatorDashboard extends StatefulWidget {
   const InitiatorDashboard({super.key});
 
@@ -60,11 +65,9 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           schema: 'public',
           table: 'coc_records',
           callback: (payload) {
-            // Only refresh if the record belongs to this user
             final newRecord = payload.newRecord as Map<String, dynamic>?;
             final oldRecord = payload.oldRecord as Map<String, dynamic>?;
 
-            // Check if the affected record belongs to current user
             if (newRecord != null && newRecord['created_by'] == userId) {
               if (mounted) {
                 loadMyRecords();
@@ -74,7 +77,6 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
                 loadMyRecords();
               }
             } else if (payload.eventType == PostgresChangeEvent.delete) {
-              // For deletes, we need to check if any record belonging to user was deleted
               if (mounted) {
                 loadMyRecords();
               }
@@ -126,13 +128,11 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
     } catch (e) {
       if (!mounted) return;
 
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -157,9 +157,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
       loading = true;
     });
 
-    // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
-
     await loadMyRecords();
   }
 
@@ -387,8 +385,8 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
 
   Widget buildRecordCard(Map<String, dynamic> record) {
     final status = record['status']?.toString() ?? '-';
-    final isDraft = status == 'draft';
-    final readOnly = !isDraft;
+    final canEditRecord = canEdit(status);
+    final readOnly = !canEditRecord;
 
     return NeumoCard(
       child: InkWell(
@@ -404,45 +402,55 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
             ),
           ).then((_) => loadMyRecords());
         },
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: getStatusColor(status).withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: getStatusColor(status).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  getStatusIcon(status), 
+                  color: getStatusColor(status),
+                  size: 24,
+                ),
               ),
-              child: Icon(getStatusIcon(status), color: getStatusColor(status)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    record['batch_number']?.toString() ?? 'No batch number',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: AppTheme.textDark,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      record['batch_number']?.toString() ?? 'No batch number',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.textDark,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    record['project_name']?.toString() ?? '-',
-                    style: const TextStyle(color: AppTheme.textSoft),
-                  ),
-                  const SizedBox(height: 8),
-                  buildStatusChip(status),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      record['project_name']?.toString() ?? '-',
+                      style: const TextStyle(
+                        color: AppTheme.textSoft,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    buildStatusChip(status),
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              isDraft ? Icons.edit : Icons.lock,
-              color: isDraft ? AppTheme.primary : Colors.grey,
-              size: 20,
-            ),
-          ],
+              Icon(
+                canEditRecord ? Icons.edit : Icons.lock,
+                color: canEditRecord ? AppTheme.primary : Colors.grey,
+                size: 20,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -450,7 +458,6 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // Show no internet state
     if (noInternet) {
       return Scaffold(
         appBar: AppBar(
@@ -481,7 +488,6 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
       );
     }
 
-    // Show loading skeleton
     if (loading) {
       return Scaffold(
         appBar: AppBar(
