@@ -13,7 +13,6 @@ import '../../shared/utils/session_handler.dart';
 import '../auth/login_screen.dart';
 import '../coc/page1_site_information/site_information_screen.dart';
 import '../notifications/notification_bell.dart';
-import 'submitted_coc_view_screen.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -395,33 +394,26 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
   Widget buildRecordCard(Map<String, dynamic> record) {
     final status = record['status']?.toString() ?? '-';
     final isDraft = status == 'draft';
-    final batchNumber = record['batch_number']?.toString() ?? '-';
-    final recordId = record['id']?.toString();
 
     return NeumoCard(
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: () {
-          if (isDraft) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    SiteInformationScreen(existingRecord: record),
-              ),
-            ).then((_) => loadMyRecords());
-          } else if (recordId != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SubmittedCocViewScreen(
-                  recordId: recordId,
-                  batchNumber: batchNumber,
-                ),
-              ),
-            );
-          }
-        },
+        onTap: isDraft
+            ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        SiteInformationScreen(existingRecord: record),
+                  ),
+                ).then((_) => loadMyRecords());
+              }
+            : () {
+                AppSnackBar.warning(
+                  context,
+                  'Only draft records can be edited',
+                );
+              },
         child: Row(
           children: [
             Container(
@@ -456,7 +448,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
               ),
             ),
             Icon(
-              isDraft ? Icons.edit : Icons.visibility,
+              isDraft ? Icons.edit : Icons.lock,
               color: isDraft ? AppTheme.primary : Colors.grey,
               size: 20,
             ),
