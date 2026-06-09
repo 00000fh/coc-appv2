@@ -77,6 +77,54 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     return row['result_value']?.toString() ?? '-';
   }
 
+  // Helper to build result text for PDF (single column with all labels and values)
+  String buildResultText(dynamic analysisId) {
+    final values = resultValuesForAnalysis(analysisId);
+
+    if (values.isEmpty) return '-';
+
+    return values
+        .map((v) => '${v['result_label']}: ${v['result_value']}')
+        .join('\n');
+  }
+
+  // Helper methods to check if limit columns have any data
+  bool hasDoeValues() {
+    return insituResults.any(
+          (e) => (e['doe_limit']?.toString().trim().isNotEmpty ?? false),
+        ) ||
+        labResults.any(
+          (e) => (e['doe_limit']?.toString().trim().isNotEmpty ?? false),
+        );
+  }
+
+  bool hasJkrValues() {
+    return insituResults.any(
+          (e) => (e['jkr_limit']?.toString().trim().isNotEmpty ?? false),
+        ) ||
+        labResults.any(
+          (e) => (e['jkr_limit']?.toString().trim().isNotEmpty ?? false),
+        );
+  }
+
+  bool hasInternalValues() {
+    return insituResults.any(
+          (e) => (e['internal_limit']?.toString().trim().isNotEmpty ?? false),
+        ) ||
+        labResults.any(
+          (e) => (e['internal_limit']?.toString().trim().isNotEmpty ?? false),
+        );
+  }
+
+  bool hasBaselineValues() {
+    return insituResults.any(
+          (e) => (e['baseline_limit']?.toString().trim().isNotEmpty ?? false),
+        ) ||
+        labResults.any(
+          (e) => (e['baseline_limit']?.toString().trim().isNotEmpty ?? false),
+        );
+  }
+
   Future<Uint8List?> downloadStorageImageBytes(
     String path,
     String bucket,
@@ -330,8 +378,11 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       color: PdfColors.grey700,
     );
 
-    // Get all result labels for dynamic columns
-    final resultLabels = getAllResultLabels();
+    // Get show/hide flags for limit columns
+    final showDoe = hasDoeValues();
+    final showJkr = hasJkrValues();
+    final showInternal = hasInternalValues();
+    final showBaseline = hasBaselineValues();
 
     pw.Widget sectionHeader(String title) {
       return pw.Container(
@@ -520,6 +571,68 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               ? '-'
               : lab['lab_name']?.toString() ?? '-';
 
+          // Build insitu results with conditional columns for PDF
+          final insituHeaders = [
+            'Parameter',
+            'Result',
+            'Unit',
+            'Status',
+            'Remarks',
+            if (showDoe) 'DOE',
+            if (showJkr) 'JKR',
+            if (showInternal) 'Internal',
+            if (showBaseline) 'Baseline',
+          ];
+
+          final insituRows = insituResults.map((row) {
+            return [
+              row['parameter_name']?.toString() ?? '-',
+              row['result']?.toString() ?? '-',
+              row['unit']?.toString() ?? '-',
+              row['status']?.toString() ?? '-',
+              row['remarks']?.toString() ?? '-',
+              if (showDoe) row['doe_limit']?.toString() ?? '-',
+              if (showJkr) row['jkr_limit']?.toString() ?? '-',
+              if (showInternal) row['internal_limit']?.toString() ?? '-',
+              if (showBaseline) row['baseline_limit']?.toString() ?? '-',
+            ];
+          }).toList();
+
+          // Build lab results with single Results column for PDF
+          final labHeaders = [
+            'Sampling Type',
+            'Parameter',
+            'Results',
+            'Unit',
+            'Status',
+            'Analyst',
+            'Date',
+            'Remarks',
+            if (showDoe) 'DOE',
+            if (showJkr) 'JKR',
+            if (showInternal) 'Internal',
+            if (showBaseline) 'Baseline',
+          ];
+
+          final labRows = labResults.map((row) {
+            final resultText = buildResultText(row['id']);
+            
+            return [
+              row['sampling_type']?.toString() ?? '-',
+              row['parameter_name']?.toString() ?? '-',
+              resultText,
+              row['unit']?.toString() ?? '-',
+              row['status']?.toString() ?? '-',
+              row['analyst_name']?.toString() ?? '-',
+              row['analysis_date']?.toString() ?? '-',
+              row['remarks']?.toString() ?? '-',
+              if (showDoe) row['doe_limit']?.toString() ?? '-',
+              if (showJkr) row['jkr_limit']?.toString() ?? '-',
+              if (showInternal) row['internal_limit']?.toString() ?? '-',
+              if (showBaseline) row['baseline_limit']?.toString() ?? '-',
+            ];
+          }).toList();
+
           return [
             pw.Center(
               child: pw.Text(
@@ -590,99 +703,46 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             sectionHeader('3. INSITU RESULT'),
             pw.SizedBox(height: 6),
             formalTable(
-              headers: [
-                'Parameter',
-                'Result',
-                'Unit',
-                'Status',
-                'Remarks',
-                'DOE',
-                'JKR',
-                'Internal',
-                'Baseline',
-              ],
+              headers: insituHeaders,
               columnWidths: {
                 0: const pw.FlexColumnWidth(2),
                 1: const pw.FlexColumnWidth(1),
                 2: const pw.FlexColumnWidth(1),
                 3: const pw.FlexColumnWidth(1.2),
                 4: const pw.FlexColumnWidth(2.2),
-                5: const pw.FlexColumnWidth(1),
-                6: const pw.FlexColumnWidth(1),
-                7: const pw.FlexColumnWidth(1),
-                8: const pw.FlexColumnWidth(1),
+                if (showDoe) 5: const pw.FlexColumnWidth(1),
+                if (showJkr && !showDoe) 5: const pw.FlexColumnWidth(1),
+                if (showJkr && showDoe) 6: const pw.FlexColumnWidth(1),
+                if (showInternal && !showJkr && !showDoe) 5: const pw.FlexColumnWidth(1),
+                if (showInternal && (showJkr || showDoe)) 6: const pw.FlexColumnWidth(1),
+                if (showInternal && showJkr && showDoe) 7: const pw.FlexColumnWidth(1),
+                if (showBaseline) 8: const pw.FlexColumnWidth(1),
               },
-              data: insituResults.map((row) {
-                return [
-                  row['parameter_name']?.toString() ?? '-',
-                  row['result']?.toString() ?? '-',
-                  row['unit']?.toString() ?? '-',
-                  row['status']?.toString() ?? '-',
-                  row['remarks']?.toString() ?? '-',
-                  row['doe_limit']?.toString() ?? '-',
-                  row['jkr_limit']?.toString() ?? '-',
-                  row['internal_limit']?.toString() ?? '-',
-                  row['baseline_limit']?.toString() ?? '-',
-                ];
-              }).toList(),
+              data: insituRows,
             ),
             pw.SizedBox(height: 14),
             sectionHeader('4. LAB ANALYSIS RESULT'),
             pw.SizedBox(height: 6),
             formalTable(
-              headers: [
-                'Sampling Type',
-                'Parameter',
-                ...resultLabels,
-                'Unit',
-                'Status',
-                'Analyst',
-                'Date',
-                'Remarks',
-                'DOE',
-                'JKR',
-                'Internal',
-                'Baseline',
-              ],
+              headers: labHeaders,
               columnWidths: {
                 0: const pw.FlexColumnWidth(1.6),
                 1: const pw.FlexColumnWidth(1.8),
-                // Dynamic column widths for result labels
-                ...Map.fromIterable(
-                  resultLabels,
-                  key: (e) => resultLabels.indexOf(e) + 2,
-                  value: (e) => const pw.FlexColumnWidth(1),
-                ),
-                2 + resultLabels.length: const pw.FlexColumnWidth(0.8),
-                3 + resultLabels.length: const pw.FlexColumnWidth(1.4),
-                4 + resultLabels.length: const pw.FlexColumnWidth(1.2),
-                5 + resultLabels.length: const pw.FlexColumnWidth(1.3),
-                6 + resultLabels.length: const pw.FlexColumnWidth(1.4),
-                7 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                8 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                9 + resultLabels.length: const pw.FlexColumnWidth(0.9),
-                10 + resultLabels.length: const pw.FlexColumnWidth(0.9),
+                2: const pw.FlexColumnWidth(2.5),
+                3: const pw.FlexColumnWidth(0.8),
+                4: const pw.FlexColumnWidth(1.4),
+                5: const pw.FlexColumnWidth(1.2),
+                6: const pw.FlexColumnWidth(1.3),
+                7: const pw.FlexColumnWidth(1.4),
+                if (showDoe) 8: const pw.FlexColumnWidth(0.9),
+                if (showJkr && !showDoe) 8: const pw.FlexColumnWidth(0.9),
+                if (showJkr && showDoe) 9: const pw.FlexColumnWidth(0.9),
+                if (showInternal && !showJkr && !showDoe) 8: const pw.FlexColumnWidth(0.9),
+                if (showInternal && (showJkr || showDoe)) 9: const pw.FlexColumnWidth(0.9),
+                if (showInternal && showJkr && showDoe) 10: const pw.FlexColumnWidth(0.9),
+                if (showBaseline) 11: const pw.FlexColumnWidth(0.9),
               },
-              data: labResults.map((row) {
-                final dynamicValues = resultLabels.map(
-                  (label) => getResultValue(row['id'], label),
-                ).toList();
-
-                return [
-                  row['sampling_type']?.toString() ?? '-',
-                  row['parameter_name']?.toString() ?? '-',
-                  ...dynamicValues,
-                  row['unit']?.toString() ?? '-',
-                  row['status']?.toString() ?? '-',
-                  row['analyst_name']?.toString() ?? '-',
-                  row['analysis_date']?.toString() ?? '-',
-                  row['remarks']?.toString() ?? '-',
-                  row['doe_limit']?.toString() ?? '-',
-                  row['jkr_limit']?.toString() ?? '-',
-                  row['internal_limit']?.toString() ?? '-',
-                  row['baseline_limit']?.toString() ?? '-',
-                ];
-              }).toList(),
+              data: labRows,
             ),
             pw.SizedBox(height: 14),
             sectionHeader('5. LAB ACKNOWLEDGEMENT'),
@@ -839,6 +899,12 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     
     // Get all result labels for dynamic columns in UI
     final resultLabels = getAllResultLabels();
+    
+    // Get show/hide flags for limit columns
+    final showDoe = hasDoeValues();
+    final showJkr = hasJkrValues();
+    final showInternal = hasInternalValues();
+    final showBaseline = hasBaselineValues();
 
     return Scaffold(
       appBar: AppBar(
@@ -1089,6 +1155,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Unit',
                         'Status',
                         'Remarks',
+                        if (showDoe) 'DOE',
+                        if (showJkr) 'JKR',
+                        if (showInternal) 'Internal',
+                        if (showBaseline) 'Baseline',
                       ],
                       rows: insituResults.map((row) {
                         return [
@@ -1097,6 +1167,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['remarks']?.toString() ?? '-',
+                          if (showDoe) row['doe_limit']?.toString() ?? '-',
+                          if (showJkr) row['jkr_limit']?.toString() ?? '-',
+                          if (showInternal) row['internal_limit']?.toString() ?? '-',
+                          if (showBaseline) row['baseline_limit']?.toString() ?? '-',
                         ];
                       }).toList(),
                     ),
@@ -1178,6 +1252,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Analyst',
                         'Date',
                         'Remarks',
+                        if (showDoe) 'DOE',
+                        if (showJkr) 'JKR',
+                        if (showInternal) 'Internal',
+                        if (showBaseline) 'Baseline',
                       ],
                       rows: labResults.map((row) {
                         final resultColumns = resultLabels.map(
@@ -1193,6 +1271,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                           row['analyst_name']?.toString() ?? '-',
                           row['analysis_date']?.toString() ?? '-',
                           row['remarks']?.toString() ?? '-',
+                          if (showDoe) row['doe_limit']?.toString() ?? '-',
+                          if (showJkr) row['jkr_limit']?.toString() ?? '-',
+                          if (showInternal) row['internal_limit']?.toString() ?? '-',
+                          if (showBaseline) row['baseline_limit']?.toString() ?? '-',
                         ];
                       }).toList(),
                     ),
