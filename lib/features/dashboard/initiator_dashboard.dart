@@ -13,6 +13,7 @@ import '../../shared/utils/session_handler.dart';
 import '../auth/login_screen.dart';
 import '../coc/page1_site_information/site_information_screen.dart';
 import '../notifications/notification_bell.dart';
+import '../coc/page7_report/report_preview_screen.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -383,7 +384,7 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
           setState(() => searchQuery = value);
         },
         decoration: const InputDecoration(
-          hintText: 'Search by Batch Number or Project Name',
+          hintText: 'Search by Batch Number or Project Name', 
           prefixIcon: Icon(Icons.search),
           border: InputBorder.none,
         ),
@@ -409,9 +410,14 @@ class _InitiatorDashboardState extends State<InitiatorDashboard> {
                 ).then((_) => loadMyRecords());
               }
             : () {
-                AppSnackBar.warning(
+                Navigator.push(
                   context,
-                  'Only draft records can be edited',
+                  MaterialPageRoute(
+                    builder: (_) => ReportPreviewScreen(
+                      recordId: record['id'],
+                      batchNumber: record['batch_number'],
+                    ),
+                  ),
                 );
               },
         child: Row(
