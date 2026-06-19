@@ -5,12 +5,14 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/neumo_card.dart';
 import '../../../shared/widgets/loading_skeleton.dart';
 import '../../../shared/widgets/no_internet_state.dart';
 import '../../../shared/utils/app_snackbar.dart';
 import '../../../shared/utils/session_handler.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../../../core/supabase_config.dart';
 
@@ -35,12 +37,15 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   Map<String, dynamic>? record;
   Map<String, dynamic>? acknowledgement;
+  List<Map<String, dynamic>> labAnalysisAttachments = [];
+  String userRole = '';
 
   List<Map<String, dynamic>> samplingTypes = [];
   List<Map<String, dynamic>> selectedParameters = [];
   List<Map<String, dynamic>> insituResults = [];
   List<Map<String, dynamic>> labResults = [];
   List<Map<String, dynamic>> labResultValues = [];
+  List<Map<String, dynamic>> insituResultValues = [];
   List<Map<String, dynamic>> attachments = [];
 
   @override
@@ -62,6 +67,19 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     return labels;
   }
 
+  // Helper to get all unique insitu result labels
+  List<String> getAllInsituResultLabels() {
+    final labels = insituResultValues
+        .map((e) => e['result_label']?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    labels.sort();
+
+    return labels;
+  }
+
   // Helper to get value by label for a specific analysis
   String getResultValue(
     dynamic analysisId,
@@ -70,6 +88,21 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final row = labResultValues.firstWhere(
       (e) =>
           e['analysis_result_id'] == analysisId &&
+          e['result_label'] == label,
+      orElse: () => {},
+    );
+
+    return row['result_value']?.toString() ?? '-';
+  }
+
+  // Helper to get insitu value by label for a specific result
+  String getInsituResultValue(
+    dynamic insituId,
+    String label,
+  ) {
+    final row = insituResultValues.firstWhere(
+      (e) =>
+          e['insitu_result_id'] == insituId &&
           e['result_label'] == label,
       orElse: () => {},
     );
@@ -125,17 +158,85 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
         );
   }
 
-  Future<Uint8List?> downloadStorageImageBytes(
+  // Enhanced download function for storage files
+  Future<Uint8List?> downloadStorageFileBytes(
     String path,
     String bucket,
   ) async {
+    if (path.isEmpty) return null;
+
+    debugPrint('🔍 Attempting to download file: $path');
+    debugPrint('📦 Bucket: $bucket');
+    
+    Uint8List? downloadedBytes;
+
+    // METHOD 1: Direct download using the full path from database
     try {
-      final bytes = await supabase.storage.from(bucket).download(path);
-      return bytes;
+      debugPrint('📥 Method 1: Direct download with full path');
+      downloadedBytes = await supabase.storage.from(bucket).download(path);
+      debugPrint('✅ Downloaded via direct path!');
+      return downloadedBytes;
     } catch (e) {
-      debugPrint('Failed to download image bytes: $e');
-      return null;
+      debugPrint('Method 1 failed: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}');
     }
+
+    // METHOD 2: Try signed URL (bypasses RLS for downloads)
+    if (downloadedBytes == null) {
+      try {
+        debugPrint('📥 Method 2: Signed URL');
+        final signedUrl = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(path, 300);
+        
+        final response = await http.get(Uri.parse(signedUrl));
+        
+        if (response.statusCode == 200) {
+          downloadedBytes = response.bodyBytes;
+          debugPrint('✅ Downloaded via signed URL!');
+          return downloadedBytes;
+        } else {
+          debugPrint('Signed URL returned status: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Method 2 failed: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}');
+      }
+    }
+
+    // METHOD 3: Try public URL (if bucket is public)
+    if (downloadedBytes == null) {
+      try {
+        debugPrint('📥 Method 3: Public URL');
+        final publicUrl = supabase.storage.from(bucket).getPublicUrl(path);
+        
+        final response = await http.get(Uri.parse(publicUrl));
+        
+        if (response.statusCode == 200) {
+          downloadedBytes = response.bodyBytes;
+          debugPrint('✅ Downloaded via public URL!');
+          return downloadedBytes;
+        } else {
+          debugPrint('Public URL returned status: ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('Method 3 failed: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}');
+      }
+    }
+
+    // METHOD 4: Try with just the filename (if file is in root)
+    if (downloadedBytes == null) {
+      try {
+        final fileNameOnly = path.split('/').last;
+        debugPrint('📥 Method 4: Download by filename only: $fileNameOnly');
+        downloadedBytes = await supabase.storage.from(bucket).download(fileNameOnly);
+        debugPrint('✅ Downloaded via filename only!');
+        return downloadedBytes;
+      } catch (e) {
+        debugPrint('Method 4 failed: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}');
+      }
+    }
+
+    debugPrint('❌ All download methods failed for: $path');
+    return null;
   }
 
   Future<String?> getSignedImageUrl(String path, String bucket) async {
@@ -157,6 +258,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     });
 
     try {
+      // Fetch user role
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        final profile = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        userRole = profile['role'] ?? 'initiator';
+      }
+
       record = await supabase
           .from('coc_records')
           .select('*, labs(lab_name)')
@@ -207,6 +319,12 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .select(),
       );
 
+      insituResultValues = List<Map<String, dynamic>>.from(
+        await supabase
+            .from('insitu_result_values')
+            .select(),
+      );
+
       attachments = List<Map<String, dynamic>>.from(
         await supabase
             .from('attachments')
@@ -214,6 +332,17 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             .eq('coc_record_id', widget.recordId)
             .order('sampling_type'),
       );
+
+      // Load lab analysis attachments (multiple)
+      final attachmentResponse = await supabase
+          .from('lab_analysis_attachments')
+          .select()
+          .eq('coc_record_id', widget.recordId)
+          .order('created_at', ascending: true);
+
+      labAnalysisAttachments = List<Map<String, dynamic>>.from(attachmentResponse);
+      
+      debugPrint('Loaded ${labAnalysisAttachments.length} lab analysis attachments');
     } catch (e) {
       if (!mounted) return;
 
@@ -248,7 +377,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       loading = true;
     });
 
-    // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
 
     await loadReport();
@@ -345,6 +473,255 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     );
   }
 
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  Future<void> downloadLabAttachment(String filePath, String fileName) async {
+    if (filePath.isEmpty) {
+      AppSnackBar.error(context, 'File path not found');
+      return;
+    }
+
+    try {
+      final snackBar = ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Downloading...'),
+            ],
+          ),
+          duration: Duration(days: 1),
+        ),
+      );
+
+      debugPrint('📥 Attempting to download file: $filePath');
+      debugPrint('📄 File name: $fileName');
+      
+      final bucketName = 'lab-analysis-certificates';
+
+      final downloadedBytes = await downloadStorageFileBytes(
+        filePath,
+        bucketName,
+      );
+
+      snackBar.close();
+
+      if (downloadedBytes == null) {
+        if (!mounted) return;
+        
+        AppSnackBar.error(
+          context,
+          'File not found. The attachment may have been moved or deleted.',
+        );
+        
+        debugPrint('❌ FAILED to download file with path: $filePath');
+        debugPrint('Record ID: ${widget.recordId}');
+        
+        return;
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(downloadedBytes);
+
+      if (!mounted) return;
+
+      AppSnackBar.success(context, 'File downloaded successfully!');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloaded: $fileName'),
+          action: SnackBarAction(
+            label: 'OPEN',
+            onPressed: () async {
+              await OpenFilex.open(file.path);
+            },
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).clearSnackBars();
+      
+      AppSnackBar.error(
+        context,
+        'Failed to download: ${e.toString().split(':').first}',
+      );
+    }
+  }
+
+  Widget buildLabAnalysisAttachmentsSection() {
+    if (labAnalysisAttachments.isEmpty) {
+      return const SizedBox();
+    }
+
+    return NeumoCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.attach_file,
+                    color: AppTheme.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Lab Analysis Attachments',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${labAnalysisAttachments.length} file${labAnalysisAttachments.length > 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(labAnalysisAttachments.length, (index) {
+              final attachment = labAnalysisAttachments[index];
+              final fileName = attachment['file_name']?.toString() ?? 'Unknown';
+              final fileType = attachment['file_type']?.toString() ?? 'pdf';
+              final createdAt = attachment['created_at']?.toString() ?? '';
+              final filePath = attachment['file_path']?.toString() ?? '';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.picture_as_pdf,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fileName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textDark,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  fileType.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (createdAt.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  _formatDate(createdAt),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSoft,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => downloadLabAttachment(filePath, fileName),
+                      icon: const Icon(
+                        Icons.download,
+                        color: AppTheme.primary,
+                      ),
+                      tooltip: 'Download',
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> generatePdf() async {
     setState(() => generatingPdf = true);
 
@@ -352,6 +729,14 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
     final now = DateTime.now();
     final generatedDate = '${now.day}/${now.month}/${now.year}';
+
+    final logoData = await rootBundle.load(
+      'assets/images/sfelogo.png',
+    );
+
+    final logoImage = pw.MemoryImage(
+      logoData.buffer.asUint8List(),
+    );
 
     final titleStyle = pw.TextStyle(
       fontSize: 18,
@@ -378,7 +763,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       color: PdfColors.grey700,
     );
 
-    // Get show/hide flags for limit columns
     final showDoe = hasDoeValues();
     final showJkr = hasJkrValues();
     final showInternal = hasInternalValues();
@@ -418,61 +802,78 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       );
     }
 
+    // Process attachments in parallel for better performance
     final attachmentWidgets = <pw.Widget>[];
-
-    for (final row in attachments) {
-      final path = row['file_path']?.toString();
-
-      if (path == null) continue;
-
-      final imageBytes = await downloadStorageImageBytes(
-        path,
-        'coc-attachments',
-      );
-
-      if (imageBytes == null) continue;
-
-      attachmentWidgets.add(
-        pw.Container(
-          width: 250,
-          margin: const pw.EdgeInsets.only(right: 12, bottom: 12),
-          padding: const pw.EdgeInsets.all(8),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.grey500, width: 0.4),
-            borderRadius: pw.BorderRadius.circular(4),
+    
+    if (attachments.isNotEmpty) {
+      // Download all images in parallel
+      final downloadTasks = attachments.map((row) async {
+        final path = row['file_path']?.toString();
+        if (path == null) return null;
+        
+        final imageBytes = await downloadStorageFileBytes(
+          path,
+          'coc-attachments',
+        );
+        
+        if (imageBytes == null) return null;
+        
+        return {
+          'samplingType': row['sampling_type']?.toString() ?? '-',
+          'notes': row['notes']?.toString() ?? '-',
+          'imageBytes': imageBytes,
+        };
+      }).toList();
+      
+      // Wait for all downloads to complete
+      final results = await Future.wait(downloadTasks);
+      
+      // Build widgets from downloaded images
+      for (final result in results) {
+        if (result == null) continue;
+        
+        attachmentWidgets.add(
+          pw.Container(
+            width: 250,
+            margin: const pw.EdgeInsets.only(right: 12, bottom: 12),
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey500, width: 0.4),
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  result['samplingType'] as String,
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.3),
+                  ),
+                  child: pw.Image(
+                    pw.MemoryImage(result['imageBytes'] as Uint8List),
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  'Note: ${result['notes'] as String}',
+                  style: smallStyle,
+                  maxLines: 3,
+                ),
+              ],
+            ),
           ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                row['sampling_type']?.toString() ?? '-',
-                style: pw.TextStyle(
-                  fontSize: 8,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.Container(
-                height: 120,
-                width: double.infinity,
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey300, width: 0.3),
-                ),
-                child: pw.Image(
-                  pw.MemoryImage(imageBytes),
-                  fit: pw.BoxFit.contain,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.Text(
-                'Note: ${row['notes']?.toString() ?? '-'}',
-                style: smallStyle,
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
-      );
+        );
+      }
     }
 
     pw.Widget? signatureWidget;
@@ -480,7 +881,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final signaturePath = acknowledgement?['signature_path']?.toString();
 
     if (signaturePath != null) {
-      final signatureBytes = await downloadStorageImageBytes(
+      final signatureBytes = await downloadStorageFileBytes(
         signaturePath,
         'signatures',
       );
@@ -511,22 +912,33 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
           return pw.Column(
             children: [
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'COC FIELD MONITORING SYSTEM',
-                        style: pw.TextStyle(
-                          fontSize: 10,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.blueGrey900,
+                  pw.Image(
+                    logoImage,
+                    width: 120,
+                    height: 45,
+                    fit: pw.BoxFit.contain,
+                  ),
+                  pw.SizedBox(width: 15),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'SFE CONSULTANT',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blueGrey900,
+                          ),
                         ),
-                      ),
-                      pw.Text('Chain of Custody Report', style: smallStyle),
-                    ],
+                        pw.Text(
+                          'Chain of Custody Report',
+                          style: smallStyle,
+                        ),
+                      ],
+                    ),
                   ),
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -535,7 +947,10 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         'Document No.: ${widget.batchNumber}',
                         style: smallStyle,
                       ),
-                      pw.Text('Generated: $generatedDate', style: smallStyle),
+                      pw.Text(
+                        'Generated: $generatedDate',
+                        style: smallStyle,
+                      ),
                     ],
                   ),
                 ],
@@ -571,7 +986,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
               ? '-'
               : lab['lab_name']?.toString() ?? '-';
 
-          // Build insitu results with conditional columns for PDF
           final insituHeaders = [
             'Parameter',
             'Result',
@@ -598,7 +1012,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
             ];
           }).toList();
 
-          // Build lab results with single Results column for PDF
           final labHeaders = [
             'Sampling Type',
             'Parameter',
@@ -862,7 +1275,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Show no internet state
     if (noInternet) {
       return Scaffold(
         appBar: AppBar(
@@ -878,7 +1290,6 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
       );
     }
 
-    // Show loading skeleton
     if (loading) {
       return Scaffold(
         appBar: AppBar(
@@ -897,14 +1308,15 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
     final lab = record?['labs'];
     final labName = lab == null ? '-' : lab['lab_name']?.toString() ?? '-';
     
-    // Get all result labels for dynamic columns in UI
     final resultLabels = getAllResultLabels();
+    final insituResultLabels = getAllInsituResultLabels();
     
-    // Get show/hide flags for limit columns
     final showDoe = hasDoeValues();
     final showJkr = hasJkrValues();
     final showInternal = hasInternalValues();
     final showBaseline = hasBaselineValues();
+
+    final isAdmin = userRole == 'admin';
 
     return Scaffold(
       appBar: AppBar(
@@ -1151,7 +1563,7 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                   : simpleTable(
                       headers: [
                         'Parameter',
-                        'Result',
+                        ...insituResultLabels,
                         'Unit',
                         'Status',
                         'Remarks',
@@ -1161,9 +1573,13 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                         if (showBaseline) 'Baseline',
                       ],
                       rows: insituResults.map((row) {
+                        final resultColumns = insituResultLabels.map(
+                          (label) => getInsituResultValue(row['id'], label),
+                        ).toList();
+
                         return [
                           row['parameter_name']?.toString() ?? '-',
-                          row['result']?.toString() ?? '-',
+                          ...resultColumns,
                           row['unit']?.toString() ?? '-',
                           row['status']?.toString() ?? '-',
                           row['remarks']?.toString() ?? '-',
@@ -1237,63 +1653,74 @@ class _ReportPreviewScreenState extends State<ReportPreviewScreen> {
                       ],
                     ),
             ),
-            sectionCard(
-              title: 'Lab Analysis',
-              icon: Icons.science,
-              child: labResults.isEmpty
-                  ? const Text('No lab analysis result found.')
-                  : simpleTable(
-                      headers: [
-                        'Type',
-                        'Parameter',
-                        ...resultLabels,
-                        'Unit',
-                        'Status',
-                        'Analyst',
-                        'Date',
-                        'Remarks',
-                        if (showDoe) 'DOE',
-                        if (showJkr) 'JKR',
-                        if (showInternal) 'Internal',
-                        if (showBaseline) 'Baseline',
-                      ],
-                      rows: labResults.map((row) {
-                        final resultColumns = resultLabels.map(
-                          (label) => getResultValue(row['id'], label),
-                        ).toList();
+            if (isAdmin)
+              sectionCard(
+                title: 'Lab Analysis',
+                icon: Icons.science,
+                child: labResults.isEmpty
+                    ? const Text('No lab analysis result found.')
+                    : simpleTable(
+                        headers: [
+                          'Type',
+                          'Parameter',
+                          ...resultLabels,
+                          'Unit',
+                          'Status',
+                          'Analyst',
+                          'Date',
+                          'Remarks',
+                          if (showDoe) 'DOE',
+                          if (showJkr) 'JKR',
+                          if (showInternal) 'Internal',
+                          if (showBaseline) 'Baseline',
+                        ],
+                        rows: labResults.map((row) {
+                          final resultColumns = resultLabels.map(
+                            (label) => getResultValue(row['id'], label),
+                          ).toList();
 
-                        return [
-                          row['sampling_type']?.toString() ?? '-',
-                          row['parameter_name']?.toString() ?? '-',
-                          ...resultColumns,
-                          row['unit']?.toString() ?? '-',
-                          row['status']?.toString() ?? '-',
-                          row['analyst_name']?.toString() ?? '-',
-                          row['analysis_date']?.toString() ?? '-',
-                          row['remarks']?.toString() ?? '-',
-                          if (showDoe) row['doe_limit']?.toString() ?? '-',
-                          if (showJkr) row['jkr_limit']?.toString() ?? '-',
-                          if (showInternal) row['internal_limit']?.toString() ?? '-',
-                          if (showBaseline) row['baseline_limit']?.toString() ?? '-',
-                        ];
-                      }).toList(),
-                    ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: generatingPdf ? null : generatePdf,
-              icon: generatingPdf
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          return [
+                            row['sampling_type']?.toString() ?? '-',
+                            row['parameter_name']?.toString() ?? '-',
+                            ...resultColumns,
+                            row['unit']?.toString() ?? '-',
+                            row['status']?.toString() ?? '-',
+                            row['analyst_name']?.toString() ?? '-',
+                            row['analysis_date']?.toString() ?? '-',
+                            row['remarks']?.toString() ?? '-',
+                            if (showDoe) row['doe_limit']?.toString() ?? '-',
+                            if (showJkr) row['jkr_limit']?.toString() ?? '-',
+                            if (showInternal) row['internal_limit']?.toString() ?? '-',
+                            if (showBaseline) row['baseline_limit']?.toString() ?? '-',
+                          ];
+                        }).toList(),
                       ),
-                    )
-                  : const Icon(Icons.picture_as_pdf),
-              label: Text(generatingPdf ? 'Generating PDF...' : 'Generate PDF'),
-            ),
+              ),
+            if (isAdmin && labAnalysisAttachments.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              buildLabAnalysisAttachmentsSection(),
+            ],
+            const SizedBox(height: 20),
+            if (isAdmin)
+              ElevatedButton.icon(
+                onPressed: generatingPdf ? null : generatePdf,
+                icon: generatingPdf
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.picture_as_pdf),
+                label: Text(generatingPdf ? 'Generating PDF...' : 'Generate PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
           ],
         ),
       ),

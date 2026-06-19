@@ -211,6 +211,20 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget buildCopyright() {
+    return const Padding(
+      padding: EdgeInsets.only(top: 20),
+      child: Text(
+        '© SFE Consultant Copyright 2026',
+        style: TextStyle(
+          fontSize: 12,
+          color: AppTheme.textSoft,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Show no internet state
@@ -262,6 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 10),
                         buildLoginButton(),
+                        buildCopyright(),
                       ],
                     ),
                   ),

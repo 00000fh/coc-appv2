@@ -1,4 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/neumo_card.dart';
@@ -59,6 +62,10 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
   final Map<String, DateTime> analysisDates = {};
   final Map<String, String?> statusValues = {};
 
+  // Certificate attachments - supporting multiple files
+  List<Attachment> attachments = [];
+  bool _isLoadingAttachments = false;
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +80,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
     await markAsStartedIfNeeded();
     await loadParameters();
+    await loadExistingAttachments();
 
     if (mounted) {
       setState(() => loading = false);
@@ -85,9 +93,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
       loading = true;
     });
 
-    // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
-
     await loadAllData();
   }
 
@@ -136,14 +142,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         'is_read': false,
       });
     } catch (e) {
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -161,7 +165,7 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           .from('selected_parameters')
           .select('sampling_type, parameter_name')
           .eq('coc_record_id', widget.recordId)
-          .inFilter('sampling_type', ['Water', 'Silt Trap'])
+          .inFilter('sampling_type', ['Water Quality', 'Silt Trap'])
           .order('sampling_type');
 
       selectedParameters = List<Map<String, dynamic>>.from(response);
@@ -194,14 +198,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -271,14 +273,12 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         }
       }
     } catch (e) {
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         if (!mounted) return;
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -292,6 +292,45 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           'Failed to load existing results: ${e.toString().split(':').first}',
         );
       }
+    }
+  }
+
+  Future<void> loadExistingAttachments() async {
+    setState(() => _isLoadingAttachments = true);
+    
+    try {
+      final response = await supabase
+          .from('lab_analysis_attachments')
+          .select('id, file_name, file_path, file_type, created_at')
+          .eq('coc_record_id', widget.recordId)
+          .order('created_at', ascending: true);
+
+      attachments = List<Attachment>.from(
+        response.map((item) => Attachment(
+              id: item['id']?.toString() ?? '',
+              fileName: item['file_name']?.toString() ?? '',
+              filePath: item['file_path']?.toString() ?? '',
+              fileType: item['file_type']?.toString() ?? '',
+              createdAt: item['created_at'] != null
+                  ? DateTime.parse(item['created_at'].toString())
+                  : DateTime.now(),
+            ))
+      );
+      
+      debugPrint('Loaded ${attachments.length} attachments from database');
+    } catch (e) {
+      if (!mounted) return;
+      
+      if (SessionHandler.isSessionError(e)) {
+        await SessionHandler.logoutExpired(context);
+        return;
+      }
+
+      debugPrint('Failed to load attachments: $e');
+    }
+
+    if (mounted) {
+      setState(() => _isLoadingAttachments = false);
     }
   }
 
@@ -320,15 +359,177 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     return true;
   }
 
+  Future<void> pickCertificate() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+
+    if (result == null) return;
+
+    final file = result.files.single;
+    
+    final extension = file.name.split('.').last.toLowerCase();
+    if (extension != 'pdf') {
+      if (mounted) {
+        AppSnackBar.error(
+          context,
+          'Only PDF files are allowed. Please select a PDF file.',
+        );
+      }
+      return;
+    }
+
+    Uint8List? fileBytes = file.bytes;
+    if (fileBytes == null && file.path != null) {
+      try {
+        final File fileObj = File(file.path!);
+        if (await fileObj.exists()) {
+          fileBytes = await fileObj.readAsBytes();
+        }
+      } catch (e) {
+        debugPrint('Failed to read file from path: $e');
+      }
+    }
+
+    if (fileBytes == null) {
+      if (mounted) {
+        AppSnackBar.error(
+          context,
+          'Failed to read file. Please try again.',
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      attachments.add(Attachment(
+        id: '',
+        fileName: file.name,
+        filePath: '',
+        fileType: 'pdf',
+        createdAt: DateTime.now(),
+        bytes: fileBytes,
+        isNew: true,
+      ));
+    });
+  }
+
+  void removeAttachment(int index) {
+    setState(() {
+      final attachment = attachments[index];
+      if (!attachment.isNew && attachment.id.isNotEmpty) {
+        attachments[index] = attachment.copyWith(markForDeletion: true);
+        debugPrint('Marked attachment for deletion: ${attachment.fileName} (${attachment.id})');
+      } else {
+        attachments.removeAt(index);
+        debugPrint('Removed new attachment from list');
+      }
+    });
+  }
+
+  void undoRemoveAttachment(int index) {
+    setState(() {
+      final attachment = attachments[index];
+      if (attachment.markForDeletion) {
+        attachments[index] = attachment.copyWith(markForDeletion: false);
+        debugPrint('Undo deletion for attachment: ${attachment.fileName}');
+      }
+    });
+  }
+
+  Future<void> deleteAttachmentFromDatabase(String attachmentId) async {
+    try {
+      // Try direct delete first - most reliable approach
+      debugPrint('Attempting direct delete for attachment: $attachmentId');
+      
+      final result = await supabase
+          .from('lab_analysis_attachments')
+          .delete()
+          .eq('id', attachmentId)
+          .select();
+      
+      debugPrint('Direct delete result: $result');
+      
+      // Verify deletion
+      final verifyDeletion = await supabase
+          .from('lab_analysis_attachments')
+          .select('id')
+          .eq('id', attachmentId);
+      
+      if (verifyDeletion.isEmpty) {
+        debugPrint('✅ Attachment successfully deleted via direct delete!');
+        return;
+      }
+      
+      debugPrint('Direct delete failed, trying RPC...');
+      
+      // Try RPC as fallback
+      try {
+        final rpcResult = await supabase
+            .rpc('delete_attachment', params: {
+              'attachment_id': attachmentId,
+            });
+        
+        debugPrint('RPC delete response: $rpcResult');
+        
+        // Verify again
+        final verifyAgain = await supabase
+            .from('lab_analysis_attachments')
+            .select('id')
+            .eq('id', attachmentId);
+        
+        if (verifyAgain.isEmpty) {
+          debugPrint('✅ Attachment deleted via RPC!');
+          return;
+        }
+      } catch (rpcError) {
+        debugPrint('RPC delete failed: $rpcError');
+      }
+      
+      // Last resort: Try delete with both conditions
+      debugPrint('Trying final fallback delete...');
+      await supabase
+          .from('lab_analysis_attachments')
+          .delete()
+          .eq('id', attachmentId)
+          .eq('coc_record_id', widget.recordId);
+      
+      // Final verification
+      final finalVerify = await supabase
+          .from('lab_analysis_attachments')
+          .select('id')
+          .eq('id', attachmentId);
+      
+      if (finalVerify.isEmpty) {
+        debugPrint('✅ Attachment deleted via fallback!');
+      } else {
+        debugPrint('❌ FAILED: Attachment still exists after all delete attempts!');
+        // Force delete using raw query
+        try {
+          await supabase.rpc('delete_attachment_force', params: {
+            'attachment_id': attachmentId,
+          });
+          debugPrint('Force delete attempted');
+        } catch (e) {
+          debugPrint('Force delete failed: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to delete attachment $attachmentId: $e');
+      rethrow;
+    }
+  }
+
   Future<void> saveAnalysis({required bool complete}) async {
     setState(() => saving = true);
 
     try {
+      // Save all analysis results
       for (final row in selectedParameters) {
         final samplingType = row['sampling_type'].toString();
-
         final parameterName = row['parameter_name'].toString();
-
         final key = keyFor(samplingType, parameterName);
 
         final analysisRow = await supabase
@@ -364,7 +565,6 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
         for (final result in results) {
           final label = (result['label'] as TextEditingController).text.trim();
-
           final value = (result['value'] as TextEditingController).text.trim();
 
           if (label.isEmpty || value.isEmpty) {
@@ -379,6 +579,68 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         }
       }
 
+      // Handle attachments - DELETE FIRST
+      final attachmentsToDelete = attachments.where((a) => 
+        !a.isNew && a.markForDeletion && a.id.isNotEmpty
+      ).toList();
+
+      debugPrint('Attachments to delete: ${attachmentsToDelete.length}');
+
+      // Delete marked attachments from storage and database
+      for (final attachment in attachmentsToDelete) {
+        try {
+          debugPrint('Deleting attachment: ${attachment.fileName} (${attachment.id})');
+          
+          // Delete from storage
+          if (attachment.filePath.isNotEmpty) {
+            await supabase.storage
+                .from('lab-analysis-certificates')
+                .remove([attachment.filePath]);
+            debugPrint('Deleted from storage: ${attachment.filePath}');
+          }
+          
+          // Delete from database using the dedicated method
+          await deleteAttachmentFromDatabase(attachment.id);
+        } catch (e) {
+          debugPrint('Failed to delete attachment ${attachment.id}: $e');
+        }
+      }
+
+      // Upload new attachments
+      final newAttachments = attachments.where((a) => 
+        a.isNew && !a.markForDeletion
+      ).toList();
+
+      debugPrint('New attachments to upload: ${newAttachments.length}');
+
+      for (final attachment in newAttachments) {
+        if (attachment.bytes == null) continue;
+
+        final storagePath =
+            '${widget.recordId}/${DateTime.now().millisecondsSinceEpoch}_${attachment.fileName}';
+
+        try {
+          debugPrint('Uploading attachment: ${attachment.fileName}');
+          
+          await supabase.storage
+              .from('lab-analysis-certificates')
+              .uploadBinary(storagePath, attachment.bytes!);
+
+          await supabase.from('lab_analysis_attachments').insert({
+            'coc_record_id': widget.recordId,
+            'file_name': attachment.fileName,
+            'file_path': storagePath,
+            'file_type': 'pdf',
+          });
+          
+          debugPrint('Uploaded and saved: ${attachment.fileName}');
+        } catch (e) {
+          debugPrint('Failed to upload attachment ${attachment.fileName}: $e');
+          rethrow;
+        }
+      }
+
+      // Update record status
       await supabase
           .from('coc_records')
           .update({'status': complete ? 'lab_completed' : 'lab_in_progress'})
@@ -404,6 +666,13 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
       if (complete) {
         Navigator.pop(context);
+      } else {
+        // Clear and reload attachments
+        setState(() {
+          attachments.clear();
+        });
+        await loadExistingAttachments();
+        setState(() {});
       }
     } catch (e) {
       if (!mounted) return;
@@ -419,6 +688,8 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         setState(() => noInternet = true);
         return;
       }
+
+      debugPrint('FULL ERROR => $e');
 
       AppSnackBar.error(
         context,
@@ -755,6 +1026,191 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
     );
   }
 
+  Widget buildAttachmentsSection() {
+    final visibleAttachments = attachments.where((a) => !a.markForDeletion).toList();
+    final hasAttachments = visibleAttachments.isNotEmpty;
+    final hasMarkedForDeletion = attachments.any((a) => a.markForDeletion);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.attach_file, size: 20, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            const Text(
+              'Attachments (PDF only)',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '(${visibleAttachments.length} file${visibleAttachments.length != 1 ? 's' : ''})',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSoft,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (_isLoadingAttachments)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+
+        if (hasAttachments) ...[
+          ...List.generate(visibleAttachments.length, (index) {
+            final attachment = visibleAttachments[index];
+            final originalIndex = attachments.indexOf(attachment);
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.green.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.picture_as_pdf,
+                    color: Colors.red,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          attachment.fileName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'PDF • ${attachment.isNew ? 'New' : 'Saved'}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => removeAttachment(originalIndex),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Colors.red,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+
+        OutlinedButton.icon(
+          onPressed: pickCertificate,
+          icon: const Icon(Icons.add),
+          label: const Text('Add PDF Attachment'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+
+        if (hasMarkedForDeletion) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.red.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Attachments marked for deletion:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...List.generate(attachments.length, (index) {
+                  final attachment = attachments[index];
+                  if (!attachment.markForDeletion) return const SizedBox.shrink();
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            attachment.fileName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.red,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => undoRemoveAttachment(index),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Undo'),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   void dispose() {
     for (final controller in [
@@ -778,7 +1234,6 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Show no internet state
     if (noInternet) {
       return Scaffold(
         appBar: AppBar(
@@ -794,7 +1249,6 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
       );
     }
 
-    // Show loading skeleton
     if (loading) {
       return Scaffold(
         appBar: AppBar(
@@ -824,19 +1278,16 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            const Text(
-              'Lab Analysis',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
             buildBatchCard(),
             const SizedBox(height: 14),
-            const SizedBox(height: 20),
             ...groupedParameters.keys.map(buildSamplingSection),
             const SizedBox(height: 20),
             NeumoCard(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  buildAttachmentsSection(),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -880,6 +1331,50 @@ class _LabAnalysisScreenState extends State<LabAnalysisScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class Attachment {
+  final String id;
+  final String fileName;
+  final String filePath;
+  final String fileType;
+  final DateTime createdAt;
+  final Uint8List? bytes;
+  final bool isNew;
+  final bool markForDeletion;
+
+  Attachment({
+    required this.id,
+    required this.fileName,
+    required this.filePath,
+    required this.fileType,
+    required this.createdAt,
+    this.bytes,
+    this.isNew = false,
+    this.markForDeletion = false,
+  });
+
+  Attachment copyWith({
+    String? id,
+    String? fileName,
+    String? filePath,
+    String? fileType,
+    DateTime? createdAt,
+    Uint8List? bytes,
+    bool? isNew,
+    bool? markForDeletion,
+  }) {
+    return Attachment(
+      id: id ?? this.id,
+      fileName: fileName ?? this.fileName,
+      filePath: filePath ?? this.filePath,
+      fileType: fileType ?? this.fileType,
+      createdAt: createdAt ?? this.createdAt,
+      bytes: bytes ?? this.bytes,
+      isNew: isNew ?? this.isNew,
+      markForDeletion: markForDeletion ?? this.markForDeletion,
     );
   }
 }

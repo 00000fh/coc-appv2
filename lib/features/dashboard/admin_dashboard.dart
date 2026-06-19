@@ -48,6 +48,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
+  // Helper method to check if a record is from the current month
+  bool isCurrentMonthRecord(Map<String, dynamic> record) {
+    final createdAt = record['created_at'];
+    if (createdAt == null) return false;
+
+    DateTime recordDate;
+    if (createdAt is DateTime) {
+      recordDate = createdAt;
+    } else if (createdAt is String) {
+      recordDate = DateTime.parse(createdAt);
+    } else {
+      return false;
+    }
+
+    final now = DateTime.now();
+    return recordDate.year == now.year && recordDate.month == now.month;
+  }
+
+  // Get records only from current month
+  List<Map<String, dynamic>> get currentMonthRecords {
+    return records.where(isCurrentMonthRecord).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -341,19 +364,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget buildOverviewCard() {
-    final submittedCount = records
+    // Use current month records for the overview counts
+    final currentMonthRecordsList = currentMonthRecords;
+    
+    final submittedCount = currentMonthRecordsList
         .where((r) => r['status']?.toString() == 'submitted_to_lab')
         .length;
 
-    final progressCount = records
+    final progressCount = currentMonthRecordsList
         .where((r) => r['status']?.toString() == 'lab_in_progress')
         .length;
 
-    final labDoneCount = records
+    final labDoneCount = currentMonthRecordsList
         .where((r) => r['status']?.toString() == 'lab_completed')
         .length;
 
-    final overdueCount = records.where((r) {
+    final overdueCount = currentMonthRecordsList.where((r) {
       final status = r['status']?.toString() ?? '';
       final createdAt = r['created_at']?.toString();
 
@@ -370,25 +396,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return days >= 14;
     }).length;
 
+    // Grand total (all time)
+    final grandTotal = records.length;
+
     return NeumoCard(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Admin Overview',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textDark,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Admin Overview',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_getMonthName(DateTime.now())} ${DateTime.now().year}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
             children: [
               buildOverviewItem(
                 'Total',
-                records.length.toString(),
+                currentMonthRecordsList.length.toString(),
                 AppTheme.primary,
               ),
               buildDivider(),
@@ -409,9 +458,54 @@ class _AdminDashboardState extends State<AdminDashboard> {
               buildOverviewItem('Overdue', overdueCount.toString(), Colors.red),
             ],
           ),
+          // Subtle grand total indicator
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 14,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'All-time total: $grandTotal records',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Total records created since you started using the app',
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _getMonthName(DateTime date) {
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return monthNames[date.month - 1];
   }
 
   Widget buildOverviewItem(String label, String value, Color color) {

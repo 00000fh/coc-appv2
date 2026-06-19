@@ -48,7 +48,10 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     'Turbidity': 'NTU',
   };
 
-  final Map<String, TextEditingController> resultControllers = {};
+  // New structure: Each parameter can have multiple result rows
+  final Map<String, List<Map<String, TextEditingController>>> resultRows = {};
+  
+  // Single value controllers per parameter
   final Map<String, TextEditingController> statusControllers = {};
   final Map<String, TextEditingController> remarksControllers = {};
   final Map<String, TextEditingController> doeLimitControllers = {};
@@ -69,6 +72,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     });
 
     await checkWaterSampling();
+    initializeControllers();
     await loadExistingResults();
 
     if (mounted) {
@@ -94,7 +98,7 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
           .from('selected_sampling_types')
           .select('sampling_type')
           .eq('coc_record_id', widget.recordId)
-          .eq('sampling_type', 'Water');
+          .eq('sampling_type', 'Water Quality');
 
       hasWater = response.isNotEmpty;
     } catch (e) {
@@ -122,33 +126,71 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     }
   }
 
-  void createControllersForParameter(String parameter) {
-    resultControllers[parameter] ??= TextEditingController();
-    statusControllers[parameter] ??= TextEditingController();
-    remarksControllers[parameter] ??= TextEditingController();
-    doeLimitControllers[parameter] ??= TextEditingController();
-    jkrLimitControllers[parameter] ??= TextEditingController();
-    internalLimitControllers[parameter] ??= TextEditingController();
-    baselineLimitControllers[parameter] ??= TextEditingController();
+  void initializeControllers() {
+    for (final parameter in defaultParameters) {
+      // Initialize result rows with one empty row
+      resultRows[parameter] = [
+        {
+          'label': TextEditingController(),
+          'value': TextEditingController(),
+        },
+      ];
+      
+      // Initialize other controllers
+      statusControllers[parameter] ??= TextEditingController();
+      remarksControllers[parameter] ??= TextEditingController();
+      doeLimitControllers[parameter] ??= TextEditingController();
+      jkrLimitControllers[parameter] ??= TextEditingController();
+      internalLimitControllers[parameter] ??= TextEditingController();
+      baselineLimitControllers[parameter] ??= TextEditingController();
+    }
   }
 
   Future<void> loadExistingResults() async {
-    for (final parameter in defaultParameters) {
-      createControllersForParameter(parameter);
-    }
-
     try {
       final response = await supabase
           .from('insitu_results')
           .select()
           .eq('coc_record_id', widget.recordId);
 
+      // First, get all result values
+      final resultValues = await supabase
+          .from('insitu_result_values')
+          .select();
+
       for (final row in response) {
         final parameter = row['parameter_name'].toString();
 
-        createControllersForParameter(parameter);
+        // Get values for this parameter
+        final valuesForThisParameter = resultValues
+            .where((valueRow) => valueRow['insitu_result_id'] == row['id'])
+            .toList();
 
-        resultControllers[parameter]!.text = row['result']?.toString() ?? '';
+        // Clear existing rows and add from database
+        resultRows[parameter] = [];
+        
+        if (valuesForThisParameter.isNotEmpty) {
+          for (final valueRow in valuesForThisParameter) {
+            resultRows[parameter]!.add({
+              'label': TextEditingController(
+                text: valueRow['result_label']?.toString() ?? '',
+              ),
+              'value': TextEditingController(
+                text: valueRow['result_value']?.toString() ?? '',
+              ),
+            });
+          }
+        } else {
+          // If no values, add one empty row
+          resultRows[parameter] = [
+            {
+              'label': TextEditingController(),
+              'value': TextEditingController(),
+            },
+          ];
+        }
+
+        // Load single value fields
         statusControllers[parameter]!.text = row['status']?.toString() ?? '';
         remarksControllers[parameter]!.text = row['remarks']?.toString() ?? '';
         doeLimitControllers[parameter]!.text =
@@ -207,18 +249,48 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
 
     try {
       for (final parameter in defaultParameters) {
-        await supabase.from('insitu_results').upsert({
-          'coc_record_id': widget.recordId,
-          'parameter_name': parameter,
-          'result': resultControllers[parameter]?.text.trim(),
-          'unit': fixedUnits[parameter],
-          'status': statusControllers[parameter]?.text.trim(),
-          'remarks': remarksControllers[parameter]?.text.trim(),
-          'doe_limit': doeLimitControllers[parameter]?.text.trim(),
-          'jkr_limit': jkrLimitControllers[parameter]?.text.trim(),
-          'internal_limit': internalLimitControllers[parameter]?.text.trim(),
-          'baseline_limit': baselineLimitControllers[parameter]?.text.trim(),
-        }, onConflict: 'coc_record_id,parameter_name');
+        // First, upsert the main insitu result record
+        final insituResult = await supabase
+            .from('insitu_results')
+            .upsert({
+              'coc_record_id': widget.recordId,
+              'parameter_name': parameter,
+              'unit': fixedUnits[parameter],
+              'status': statusControllers[parameter]?.text.trim(),
+              'remarks': remarksControllers[parameter]?.text.trim(),
+              'doe_limit': doeLimitControllers[parameter]?.text.trim(),
+              'jkr_limit': jkrLimitControllers[parameter]?.text.trim(),
+              'internal_limit': internalLimitControllers[parameter]?.text.trim(),
+              'baseline_limit': baselineLimitControllers[parameter]?.text.trim(),
+            }, onConflict: 'coc_record_id,parameter_name')
+            .select()
+            .single();
+
+        final insituResultId = insituResult['id'];
+
+        // Delete existing result values for this parameter
+        await supabase
+            .from('insitu_result_values')
+            .delete()
+            .eq('insitu_result_id', insituResultId);
+
+        // Insert new result values
+        final rows = resultRows[parameter] ?? [];
+        
+        for (final row in rows) {
+          final label = (row['label'] as TextEditingController).text.trim();
+          final value = (row['value'] as TextEditingController).text.trim();
+
+          if (label.isEmpty || value.isEmpty) {
+            continue;
+          }
+
+          await supabase.from('insitu_result_values').insert({
+            'insitu_result_id': insituResultId,
+            'result_label': label,
+            'result_value': value,
+          });
+        }
       }
 
       if (!mounted) return;
@@ -353,23 +425,74 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
     'Not Applicable',
   ];
 
-  Widget buildInputField({
-    required TextEditingController? controller,
-    required String hint,
-    required IconData icon,
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        readOnly: widget.readOnly,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixIcon: Icon(icon, color: AppTheme.primary),
-        ),
-      ),
+  Widget buildResultsSection(String parameter) {
+    final rows = resultRows[parameter] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Results', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+
+        ...List.generate(rows.length, (index) {
+          final row = rows[index];
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: row['label'],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'Label',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: row['value'],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'Value',
+                    ),
+                  ),
+                ),
+                if (!widget.readOnly)
+                  IconButton(
+                    onPressed: rows.length == 1
+                        ? null
+                        : () {
+                            setState(() {
+                              // Dispose controllers before removing
+                              row['label']?.dispose();
+                              row['value']?.dispose();
+                              rows.removeAt(index);
+                            });
+                          },
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+              ],
+            ),
+          );
+        }),
+
+        if (!widget.readOnly)
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                rows.add({
+                  'label': TextEditingController(),
+                  'value': TextEditingController(),
+                });
+              });
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Add Result'),
+          ),
+      ],
     );
   }
 
@@ -381,11 +504,13 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         children: [
           buildParameterHeader(parameter),
           const SizedBox(height: 16),
-          buildInputField(
-            controller: resultControllers[parameter],
-            hint: 'Result',
-            icon: Icons.edit_note,
-          ),
+          
+          // Multiple results section
+          buildResultsSection(parameter),
+          
+          const SizedBox(height: 16),
+          
+          // Single value fields
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: DropdownButtonFormField<String>(
@@ -414,12 +539,20 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
                     },
             ),
           ),
-          buildInputField(
-            controller: remarksControllers[parameter],
-            hint: 'Remarks',
-            icon: Icons.notes,
-            maxLines: 2,
+          
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: TextField(
+              controller: remarksControllers[parameter],
+              readOnly: widget.readOnly,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Remarks',
+                prefixIcon: Icon(Icons.notes, color: AppTheme.primary),
+              ),
+            ),
           ),
+          
           const SizedBox(height: 4),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -438,25 +571,58 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
                 style: TextStyle(color: AppTheme.textSoft, fontSize: 12),
               ),
               children: [
-                buildInputField(
-                  controller: doeLimitControllers[parameter],
-                  hint: 'DOE Limit',
-                  icon: Icons.balance,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: doeLimitControllers[parameter],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'DOE Limit',
+                      prefixIcon: Icon(Icons.balance, color: AppTheme.primary),
+                    ),
+                  ),
                 ),
-                buildInputField(
-                  controller: jkrLimitControllers[parameter],
-                  hint: 'JKR Limit',
-                  icon: Icons.account_balance,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: jkrLimitControllers[parameter],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'JKR Limit',
+                      prefixIcon: Icon(
+                        Icons.account_balance,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
-                buildInputField(
-                  controller: internalLimitControllers[parameter],
-                  hint: 'Internal Limit',
-                  icon: Icons.business_center,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: internalLimitControllers[parameter],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'Internal Limit',
+                      prefixIcon: Icon(
+                        Icons.business_center,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
-                buildInputField(
-                  controller: baselineLimitControllers[parameter],
-                  hint: 'Baseline Limit',
-                  icon: Icons.stacked_line_chart,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: baselineLimitControllers[parameter],
+                    readOnly: widget.readOnly,
+                    decoration: const InputDecoration(
+                      hintText: 'Baseline Limit',
+                      prefixIcon: Icon(
+                        Icons.stacked_line_chart,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -481,16 +647,22 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
 
   @override
   void dispose() {
-    for (final controller in [
-      ...resultControllers.values,
-      ...statusControllers.values,
-      ...remarksControllers.values,
-      ...doeLimitControllers.values,
-      ...jkrLimitControllers.values,
-      ...internalLimitControllers.values,
-      ...baselineLimitControllers.values,
-    ]) {
-      controller.dispose();
+    // Dispose all controllers
+    for (final parameter in defaultParameters) {
+      // Dispose result rows
+      final rows = resultRows[parameter] ?? [];
+      for (final row in rows) {
+        row['label']?.dispose();
+        row['value']?.dispose();
+      }
+      
+      // Dispose single value controllers
+      statusControllers[parameter]?.dispose();
+      remarksControllers[parameter]?.dispose();
+      doeLimitControllers[parameter]?.dispose();
+      jkrLimitControllers[parameter]?.dispose();
+      internalLimitControllers[parameter]?.dispose();
+      baselineLimitControllers[parameter]?.dispose();
     }
 
     super.dispose();
@@ -544,20 +716,6 @@ class _InsituResultScreenState extends State<InsituResultScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           buildBatchCard(),
-          const SizedBox(height: 4),
-          const Text(
-            'Water Insitu Result',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textDark,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Fill in result, status and remarks. Units are fixed based on parameter.',
-            style: TextStyle(color: AppTheme.textSoft),
-          ),
           const SizedBox(height: 16),
           if (!hasWater) buildNoWaterCard(),
           if (hasWater) ...defaultParameters.map(buildResultCard),

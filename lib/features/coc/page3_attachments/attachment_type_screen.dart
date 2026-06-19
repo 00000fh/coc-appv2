@@ -438,13 +438,13 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
 
   Color getSamplingColor() {
     switch (widget.samplingType) {
-      case 'Water':
+      case 'Water Quality':
         return Colors.blue;
       case 'Silt Trap':
         return Colors.brown;
       case 'Ambient Air':
         return Colors.teal;
-      case 'Noise':
+      case 'Boundary Noise':
         return Colors.deepPurple;
       case 'Vibration':
         return Colors.orange;
@@ -455,13 +455,13 @@ class _AttachmentTypeScreenState extends State<AttachmentTypeScreen> {
 
   IconData getSamplingIcon() {
     switch (widget.samplingType) {
-      case 'Water':
+      case 'Water Quality':
         return Icons.water_drop;
       case 'Silt Trap':
         return Icons.landscape;
       case 'Ambient Air':
         return Icons.air;
-      case 'Noise':
+      case 'Boundary Noise':
         return Icons.volume_up;
       case 'Vibration':
         return Icons.graphic_eq;

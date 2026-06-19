@@ -26,7 +26,7 @@ class SamplingDetailsScreen extends StatefulWidget {
 
 class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   bool loading = false;
-  bool isLoading = true; // For initial loading skeleton
+  bool isLoading = true;
   bool noInternet = false;
 
   final Set<String> selectedTypes = {};
@@ -34,12 +34,12 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   final Map<String, String?> selectedDurations = {};
 
   final Map<String, TextEditingController> customParameterControllers = {
-    'Water': TextEditingController(),
+    'Water Quality': TextEditingController(),
     'Silt Trap': TextEditingController(),
   };
 
   final Map<String, List<String>> parametersByType = {
-    'Water': [
+    'Water Quality': [
       'pH',
       'Temperature',
       'Dissolved Oxygen (DO)',
@@ -54,13 +54,13 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
     ],
     'Silt Trap': ['Turbidity', 'Total Suspended Solids'],
     'Ambient Air': ['TSP', 'PM10', 'PM2.5', 'SOx', 'NOx', 'CO', 'O3'],
-    'Noise': ['Leq', 'Lmax', 'Lmin', 'L10', 'L90', 'L50'],
+    'Boundary Noise': ['Leq', 'Lmax', 'Lmin', 'L10', 'L90', 'L50'],
     'Vibration': ['PPV (mm/s)'],
   };
 
   final Map<String, List<String>> durationsByType = {
     'Ambient Air': ['12 hour', '24 hour'],
-    'Noise': ['12 hour', '24 hour'],
+    'Boundary Noise': ['12 hour', '24 hour'],
     'Vibration': ['8 hour', '12 hour', '24 hour'],
   };
 
@@ -72,10 +72,47 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       selectedParameters[type] = {};
     }
 
-    // Simulate initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() => isLoading = false);
+      loadExistingSelections();
     });
+  }
+
+  Future<void> loadExistingSelections() async {
+    try {
+      // Load selected sampling types with their durations
+      final typesResponse = await supabase
+          .from('selected_sampling_types')
+          .select('sampling_type, duration')
+          .eq('coc_record_id', widget.recordId);
+
+      if (typesResponse.isNotEmpty) {
+        for (final row in typesResponse) {
+          final type = row['sampling_type'].toString();
+          selectedTypes.add(type);
+          selectedDurations[type] = row['duration']?.toString();
+        }
+
+        // Load selected parameters
+        final paramsResponse = await supabase
+            .from('selected_parameters')
+            .select('sampling_type, parameter_name')
+            .eq('coc_record_id', widget.recordId);
+
+        for (final row in paramsResponse) {
+          final type = row['sampling_type'].toString();
+          final parameter = row['parameter_name'].toString();
+          selectedParameters[type] ??= {};
+          selectedParameters[type]!.add(parameter);
+        }
+      }
+    } catch (e) {
+      // Silently fail - user can reselect if needed
+      debugPrint('Error loading existing selections: $e');
+    }
+
+    if (mounted) {
+      setState(() => isLoading = false);
+    }
   }
 
   void toggleParameter(String type, String parameter, bool selected) {
@@ -194,6 +231,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             ],
                           ),
                           child: DropdownButtonFormField<String>(
+                            // FIXED: Changed from 'value' to 'initialValue'
                             initialValue: selectedDurations[type],
                             decoration: const InputDecoration(
                               hintText: 'Select Duration',
@@ -213,7 +251,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             },
                           ),
                         ),
-                      if (type == 'Water' || type == 'Silt Trap')
+                      if (type == 'Water Quality' || type == 'Silt Trap')
                         Row(
                           children: [
                             Expanded(
@@ -233,7 +271,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                             ),
                           ],
                         ),
-                      if (type == 'Water' || type == 'Silt Trap')
+                      if (type == 'Water Quality' || type == 'Silt Trap')
                         const SizedBox(height: 16),
                       const Text(
                         'Parameters',
@@ -375,13 +413,11 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      // Check for session errors
       if (SessionHandler.isSessionError(e)) {
         await SessionHandler.logoutExpired(context);
         return;
       }
 
-      // Check for internet connection issues
       if (e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('network')) {
@@ -406,23 +442,19 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       isLoading = true;
     });
 
-    // Small delay to ensure connection check
     await Future.delayed(const Duration(milliseconds: 500));
-
-    if (mounted) {
-      setState(() => isLoading = false);
-    }
+    await loadExistingSelections();
   }
 
   Color getTypeColor(String type) {
     switch (type) {
-      case 'Water':
+      case 'Water Quality':
         return Colors.blue;
       case 'Silt Trap':
         return Colors.brown;
       case 'Ambient Air':
         return Colors.teal;
-      case 'Noise':
+      case 'Boundary Noise': // FIXED: Changed from 'BoundaryNoise' to match the key
         return Colors.deepPurple;
       case 'Vibration':
         return Colors.orange;
@@ -433,13 +465,13 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
 
   IconData getTypeIcon(String type) {
     switch (type) {
-      case 'Water':
+      case 'Water Quality':
         return Icons.water_drop;
       case 'Silt Trap':
         return Icons.landscape;
       case 'Ambient Air':
         return Icons.air;
-      case 'Noise':
+      case 'Boundary Noise':
         return Icons.volume_up;
       case 'Vibration':
         return Icons.graphic_eq;
@@ -523,7 +555,7 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
                   Text(
                     isSelected
                         ? '$selectedCount parameter(s) selected'
-                              '${duration != null ? ' â€¢ $duration' : ''}'
+                              '${duration != null ? ' • $duration' : ''}'
                         : 'Tap to configure',
                     style: const TextStyle(
                       color: AppTheme.textSoft,
@@ -595,7 +627,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
   Widget build(BuildContext context) {
     final types = parametersByType.keys.toList();
 
-    // Show loading skeleton
     if (isLoading) {
       return Scaffold(
         appBar: AppBar(
@@ -611,7 +642,6 @@ class _SamplingDetailsScreenState extends State<SamplingDetailsScreen> {
       );
     }
 
-    // Show no internet state
     if (noInternet) {
       return Scaffold(
         appBar: AppBar(

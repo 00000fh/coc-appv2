@@ -40,6 +40,10 @@ dependencies:
 
   # Fonts
   google_fonts: ^6.2.1
+  file_picker: 10.3.2
+  url_launcher: 6.3.0
+  http: ^1.2.2
+  flutter_pdfview: ^1.3.4
 
 dev_dependencies:
   flutter_test:
@@ -60,3 +64,4 @@ flutter:
 
   assets:
     - assets/images/coclogo.png
+    - assets/images/sfelogo.png

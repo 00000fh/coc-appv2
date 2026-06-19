@@ -201,6 +201,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: e7e16c9d15c36330b94ca0e2ad8cb61f93cd5282d0158c09805aed13b5452f22
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.3.2"
   file_selector_linux:
     dependency: transitive
     description:
@@ -262,6 +270,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_pdfview:
+    dependency: "direct main"
+    description:
+      name: flutter_pdfview
+      sha256: "5b80e89f3ba6e478d1e897543c9634508284ad73476807febc188378986b69ee"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.4"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -409,7 +425,7 @@ packages:
     source: hosted
     version: "2.0.0"
   http:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: http
       sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
@@ -974,13 +990,13 @@ packages:
     source: hosted
     version: "1.4.0"
   url_launcher:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: url_launcher
-      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
+      sha256: "21b704ce5fa560ea9f3b525b43601c678728ba46725bab9b01187b4831377ed3"
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.2"
+    version: "6.3.0"
   url_launcher_android:
     dependency: transitive
     description:
